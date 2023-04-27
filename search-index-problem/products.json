@@ -1,0 +1,86 @@
+[
+  {
+    "id": 1,
+    "name": "Sleek Wooden Chair",
+    "description": "A comfortable and stylish wooden chair with a sleek design.",
+    "vendor": "Wooden Wonders",
+    "color": "brown"
+  },
+  {
+    "id": 2,
+    "name": "Innovative Gaming Keyboard",
+    "description": "A high-performance gaming keyboard with customizable RGB lighting.",
+    "vendor": "Tech Titans",
+    "color": "black"
+  },
+  {
+    "id": 3,
+    "name": "Elegant Porcelain Vase",
+    "description": "A beautifully crafted porcelain vase with intricate patterns.",
+    "vendor": "Timeless Treasures",
+    "color": "white"
+  },
+  {
+    "id": 4,
+    "name": "Durable Stainless Steel Flask",
+    "description": "A sturdy stainless steel flask perfect for keeping beverages hot or cold.",
+    "vendor": "Adventure Gear",
+    "color": "silver"
+  },
+  {
+    "id": 5,
+    "name": "Colorful Silicone Spatula",
+    "description": "A versatile and heat-resistant silicone spatula for all your cooking needs.",
+    "vendor": "Kitchen Creations",
+    "color": "red"
+  },
+  {
+    "id": 6,
+    "name": "Plush Memory Foam Pillow",
+    "description": "A soft and supportive memory foam pillow for a restful night's sleep.",
+    "vendor": "Dreamy Designs",
+    "color": "white"
+  },
+  {
+    "id": 7,
+    "name": "Compact Bluetooth Speaker",
+    "description": "A portable Bluetooth speaker with powerful sound and a long-lasting battery.",
+    "vendor": "Audio Innovators",
+    "color": "blue"
+  },
+  {
+    "id": 8,
+    "name": "Stylish Vegan Leather Bag",
+    "description": "A fashionable and eco-friendly vegan leather bag for everyday use.",
+    "vendor": "Eco Chic",
+    "color": "black"
+  },
+  {
+    "id": 9,
+    "name": "Refreshing Aloe Vera Gel",
+    "description": "A soothing and moisturizing aloe vera gel for all skin types.",
+    "vendor": "Natural Beauty",
+    "color": "green"
+  },
+  {
+    "id": 10,
+    "name": "Waterproof Sports Watch",
+    "description": "A durable and waterproof sports watch with advanced fitness tracking features.",
+    "vendor": "Athletic Accessories",
+    "color": "black"
+  },
+  {
+    "id": 11,
+    "name": "Creative Coloring Book",
+    "description": "A fun and engaging coloring book filled with intricate designs.",
+    "vendor": "Artistic Adventures",
+    "color": "multicolor"
+  },
+  {
+    "id": 12,
+    "name": "Organic Cotton T-Shirt",
+    "description": "A soft and breathable organic cotton T-shirt perfect for casual wear.",
+    "vendor": "Eco Fashion",
+    "color": "gray"
+  }
+]
