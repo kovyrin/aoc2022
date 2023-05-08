@@ -89,5 +89,12 @@
     "description": "A cool gaming keyboard with steel legs.",
     "vendor": "Steel Co",
     "color": "steel"
+  },
+  {
+    "id": 14,
+    "name": "Cool Metal Table",
+    "description": "A cool table with steel legs.",
+    "vendor": "Steel Co",
+    "color": "steel"
   }
 ]
