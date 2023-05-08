@@ -51,16 +51,28 @@ fn main() {
   let word_index = build_word_index(products.as_slice());
 
   let keyboards = find_by_keyword(&word_index, "keyboard");
-  print_results("Found products with keyword 'keyboard':", keyboards);
+  print_results("Found products with keyword 'keyboard':", &keyboards);
+
+  let bananas = find_by_keyword(&word_index, "banana");
+  print_results("Found products with keyword 'banana':", &bananas);
 }
 
 fn print_results(title: &str, products: &Vec<&Product>) {
   println!("\n{}", title);
+  if products.is_empty() {
+    println!("No results found");
+    return;
+  }
+
   for product in products {
     println!("- id={}, name={}, description={}, vendor={}, color={}", product.id, product.name, product.description, product.vendor, product.color);
   }
 }
 
-fn find_by_keyword<'a>(word_index: &'a HashMap<String, Vec<&Product>>, keyword: &str) -> &'a Vec<&'a Product> {
-  return word_index.get(keyword).unwrap();
+fn find_by_keyword<'a>(word_index: &'a HashMap<String, Vec<&Product>>, keyword: &str) -> Vec<&'a Product> {
+  let keyword = keyword.to_string().to_lowercase();
+  if !word_index.contains_key(&keyword) {
+    return Vec::new();
+  }
+  return word_index.get(&keyword).unwrap().clone();
 }
