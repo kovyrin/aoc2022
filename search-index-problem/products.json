@@ -82,5 +82,12 @@
     "description": "A soft and breathable organic cotton T-shirt perfect for casual wear.",
     "vendor": "Eco Fashion",
     "color": "gray"
+  },
+  {
+    "id": 13,
+    "name": "Cool Gaming Keyboard",
+    "description": "A cool gaming keyboard with steel legs.",
+    "vendor": "Steel Co",
+    "color": "steel"
   }
 ]
