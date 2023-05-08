@@ -17,29 +17,35 @@ fn main() {
   let mut lines: Lines = input.lines();
   let mut misplaced_items: Vec<char> = Vec::new();
 
-  while let Some(line) = lines.next() {
-    if line.is_empty() {
-      continue;
-    }
-    // Split the line exactly in half between pockets
-    let pocket_size: usize = line.len() / 2;
-    let pocket1 = &line[0..pocket_size];
-    let pocket2 = &line[pocket_size..];
+  loop {
+    let bags = [
+      lines.next(),
+      lines.next(),
+      lines.next(),
+    ];
 
-    // Compare the pockets and find the single item that exists in both pockets
+    // Check for end of input
+    if bags[0].is_none() || bags[1].is_none() || bags[2].is_none() {
+      break;
+    }
+
+    // Check for items that exist in all 3 bags
     let mut common_item: Option<char> = None;
-    for (_i, c1) in pocket1.chars().enumerate() {
-      for (_j, c2) in pocket2.chars().enumerate() {
-        if c1 == c2 {
-          common_item = Some(c1);
+    for (_i, c1) in bags[0].unwrap().chars().enumerate() {
+      for (_j, c2) in bags[1].unwrap().chars().enumerate() {
+        for (_k, c3) in bags[2].unwrap().chars().enumerate() {
+          if c1 == c2 && c2 == c3 {
+            common_item = Some(c1);
+          }
         }
       }
     }
 
     // Add the common item to the misplaced items list
     if common_item.is_none() {
-      panic!("Found no common item in line: {}, pocket1={}, pocket2={}", line, pocket1, pocket2);
+      panic!("Found no common item in bags: {}, {}, {}", bags[0].unwrap(), bags[1].unwrap(), bags[2].unwrap());
     }
+
     misplaced_items.push(common_item.unwrap());
   }
 
