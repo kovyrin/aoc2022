@@ -20,11 +20,11 @@ fn build_word_index(products: &[Product]) -> HashMap<String, Vec<&Product>> {
   for product in products {
     let words: Vec<&str> = product.name.split(" ").collect();
     for word in words {
-      let keyword: String = word.to_string().to_lowercase();
+      let keyword = word.to_string().to_lowercase();
       if !word_index.contains_key(&keyword) {
         word_index.insert(keyword.clone(), Vec::new());
       }
-      let keyword_products: &mut Vec<&Product> = word_index.get_mut(&keyword).unwrap();
+      let keyword_products = word_index.get_mut(&keyword).unwrap();
       keyword_products.push(product);
     }
   }
@@ -35,7 +35,7 @@ fn build_word_index(products: &[Product]) -> HashMap<String, Vec<&Product>> {
 // load json file DATA_FILE
 // return a vector of Product structs
 fn load_products(filename: &str) -> Vec<Product> {
-  let data: String = std::fs::read_to_string(filename).expect("Something went wrong reading the file");
+  let data = std::fs::read_to_string(filename).expect("Something went wrong reading the file");
   return serde_json::from_str(&data).unwrap();
 }
 
@@ -55,12 +55,12 @@ fn main() {
 }
 
 fn print_results(title: &str, products: &Vec<&Product>) {
-  println!("{}", title);
+  println!("\n{}", title);
   for product in products {
     println!("- id={}, name={}, description={}, vendor={}, color={}", product.id, product.name, product.description, product.vendor, product.color);
   }
 }
 
-fn find_by_keyword<'a>(word_index: &'a HashMap<String, Vec<&Product>>, keyword: &str) -> &Vec<&'a Product> {
+fn find_by_keyword<'a>(word_index: &'a HashMap<String, Vec<&Product>>, keyword: &str) -> &'a Vec<&'a Product> {
   return word_index.get(keyword).unwrap();
 }
