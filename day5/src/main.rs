@@ -34,10 +34,9 @@ fn main() {
         let src_idx: usize = command_parts.nth(1).unwrap().parse().unwrap();
         let dst_idx: usize = command_parts.nth(1).unwrap().parse().unwrap();
 
-        for _i in 0..move_count {
-            let crate_name = stacks[src_idx-1].pop().unwrap();
-            stacks[dst_idx-1].push(crate_name);
-        }
+        let src = &mut stacks[src_idx-1];
+        let mut items_to_move = src.split_off(src.len() - move_count);
+        stacks[dst_idx-1].append(&mut items_to_move);
     }
 
     let mut top_items: Vec<char> = Vec::new();
