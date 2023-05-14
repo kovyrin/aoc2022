@@ -129,13 +129,11 @@ impl Filesystem {
 fn main() {
     // If first argument is "real", use the real input file
     // Otherwise, use the test input file
-    let args: Vec<String> = std::env::args().collect();
-    let input_file: &str;
-    if args.len() > 1 && args[1] == "real" {
-        input_file = "real-input.txt";
+    let input_file = if std::env::args().nth(1).unwrap_or(String::default()).eq("real") {
+        "real-input.txt"
     } else {
-        input_file = "demo-input.txt";
-    }
+        "demo-input.txt"
+    };
     println!("Using input file: {}", input_file);
 
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
