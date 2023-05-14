@@ -16,9 +16,14 @@ struct Dir {
 }
 
 impl Dir {
-    fn new(name: String, parent: Option<DirRef>) -> Self {
+    fn new(name: &str, parent: Option<DirRef>) -> Self {
+        let full_name: String = match &parent {
+            None => name.to_string(),
+            Some(parent) => format!("{}/{}", parent.borrow().name, name)
+        };
+
         Dir {
-            name: name,
+            name: full_name,
             parent: parent,
             dirs: HashMap::new(),
             files_size: 0,
@@ -26,12 +31,8 @@ impl Dir {
         }
     }
 
-    fn new_ref(name: &String, parent: Option<DirRef>) -> DirRef {
-        let dir = Dir::new(
-            name.clone(),
-            parent
-        );
-
+    fn new_ref(name: &str, parent: Option<DirRef>) -> DirRef {
+        let dir = Dir::new(name, parent);
         Rc::new(RefCell::new(dir))
     }
 
@@ -41,16 +42,16 @@ impl Dir {
         self.total_size
     }
 
-    fn find_dirs_smaller_than(&self, limit: usize) -> Vec<usize> {
-        let mut results = Vec::new();
+    fn find_dirs_smaller_than(&self, limit: usize) -> HashMap<String,usize> {
+        let mut results = HashMap::new();
 
-        if self.total_size <= limit && !self.name.eq("/") {
-            results.push(self.total_size);
+        if self.total_size <= limit {
+            results.insert(self.name.clone(), self.total_size);
         }
 
         for dir in self.dirs.values() {
-            let mut subdir_results = dir.borrow().find_dirs_smaller_than(limit);
-            results.append(&mut subdir_results);
+            let subdir_results = dir.borrow().find_dirs_smaller_than(limit);
+            results.extend(subdir_results);
         }
 
         results
@@ -58,15 +59,15 @@ impl Dir {
 }
 
 #[derive(Debug)]
-struct Parser {
+struct Filesystem {
     root: DirRef,
     cwd: DirRef,
 }
 
-impl Parser {
+impl Filesystem {
     fn new() -> Self {
-        let root_dir = Dir::new_ref(&"/".to_string(), None);
-        Parser {
+        let root_dir = Dir::new_ref("", None);
+        Filesystem {
             root: Rc::clone(&root_dir),
             cwd: root_dir
         }
@@ -95,10 +96,8 @@ impl Parser {
 
     fn parse_dir(&mut self, line: &str) {
         let dir_name = line[4..].to_string();
-        let mut cwd = self.cwd.borrow_mut();
-
         let dir = Dir::new_ref(&dir_name, Some(Rc::clone(&self.cwd)));
-        cwd.dirs.insert(dir_name, dir);
+        self.cwd.borrow_mut().dirs.insert(dir_name, dir);
     }
 
     fn parse_file(&self, line: &str) {
@@ -109,7 +108,7 @@ impl Parser {
 
     fn cwd_parent(&self) -> DirRef {
         let cwd = self.cwd.borrow();
-        Rc::clone(cwd.parent.as_ref().unwrap())
+        cwd.parent.as_ref().unwrap().clone()
     }
 
     fn cd(&mut self, dir_name: &str) {
@@ -147,7 +146,7 @@ fn main() {
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
     let lines: Lines = input.lines();
 
-    let mut output_parser = Parser::new();
+    let mut output_parser = Filesystem::new();
     for line in lines {
         output_parser.parse_line(line);
     }
@@ -157,6 +156,6 @@ fn main() {
     let results = root.find_dirs_smaller_than(100_000);
     println!("Large dirs: {:?}", results);
 
-    let total: usize = results.iter().sum();
+    let total: usize = results.values().sum();
     println!("Total size: {}", total);
 }
