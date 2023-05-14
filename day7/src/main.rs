@@ -42,19 +42,14 @@ impl Dir {
         self.total_size
     }
 
-    fn find_dirs_smaller_than(&self, limit: usize) -> HashMap<String,usize> {
-        let mut results = HashMap::new();
-
+    fn find_dirs_smaller_than(&self, limit: usize, results: &mut HashMap<String,usize>) {
         if self.total_size <= limit {
             results.insert(self.name.clone(), self.total_size);
         }
 
         for dir in self.dirs.values() {
-            let subdir_results = dir.borrow().find_dirs_smaller_than(limit);
-            results.extend(subdir_results);
+            dir.borrow().find_dirs_smaller_than(limit, results);
         }
-
-        results
     }
 }
 
@@ -153,7 +148,8 @@ fn main() {
 
     output_parser.calculate_sizes();
     let root = output_parser.root.borrow();
-    let results = root.find_dirs_smaller_than(100_000);
+    let mut results = HashMap::new();
+    root.find_dirs_smaller_than(100_000, &mut results);
     println!("Large dirs: {:?}", results);
 
     let total: usize = results.values().sum();
