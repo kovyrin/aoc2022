@@ -147,9 +147,8 @@ fn main() {
     }
 
     output_parser.calculate_sizes();
-    let root = output_parser.root.borrow();
     let mut results = HashMap::new();
-    root.find_dirs_smaller_than(100_000, &mut results);
+    output_parser.root.borrow().find_dirs_smaller_than(100_000, &mut results);
     println!("Large dirs: {:?}", results);
 
     let total: usize = results.values().sum();
