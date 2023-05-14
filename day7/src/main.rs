@@ -7,17 +7,11 @@ use anyhow::*;
 type DirRef = Rc<RefCell<Dir>>;
 
 #[derive(Debug)]
-struct File {
-    name: String,
-    size: usize,
-}
-
-#[derive(Debug)]
 struct Dir {
     name: String,
     parent: Option<DirRef>,
     dirs: HashMap<String, DirRef>,
-    files: HashMap<String, File>,
+    files_size: usize,
     total_size: usize,
 }
 
@@ -26,8 +20,8 @@ impl Dir {
         Dir {
             name: name,
             parent: parent,
-            files: HashMap::new(),
             dirs: HashMap::new(),
+            files_size: 0,
             total_size: 0,
         }
     }
@@ -42,8 +36,7 @@ impl Dir {
     }
 
     fn calculate_size(&mut self) -> usize {
-        self.total_size = 0;
-        self.total_size += self.files.values().map(|f| { f.size }).sum::<usize>();
+        self.total_size = self.files_size;
         self.total_size += self.dirs.values().map(|d| d.borrow_mut().calculate_size() ).sum::<usize>();
         self.total_size
     }
@@ -104,18 +97,14 @@ impl Parser {
         let dir_name = line[4..].to_string();
         let mut cwd = self.cwd.borrow_mut();
 
-        println!("Adding dir {} to {}", dir_name, cwd.name);
         let dir = Dir::new_ref(&dir_name, Some(Rc::clone(&self.cwd)));
         cwd.dirs.insert(dir_name, dir);
-        println!("Resulting dirs: {:?}", cwd.dirs.keys());
     }
 
     fn parse_file(&self, line: &str) {
         let mut file_parts = line.split_whitespace();
         let size: usize = file_parts.next().expect("extract file size").parse().expect("parse file size");
-        let name = file_parts.next().expect("extract file name").to_string();
-        let file = File { name: name.clone(), size };
-        self.cwd.borrow_mut().files.insert(name, file);
+        self.cwd.borrow_mut().files_size += size;
     }
 
     fn cwd_parent(&self) -> DirRef {
@@ -134,11 +123,7 @@ impl Parser {
             return
         }
 
-        let dir_ref = {
-            let old_cwd = self.cwd.borrow();
-            println!("Looking for directory {} in {}", dir_name, old_cwd.name);
-            Rc::clone(old_cwd.dirs.get(dir_name).expect("Looking directory to cd"))
-        };
+        let dir_ref = Rc::clone(self.cwd.borrow().dirs.get(dir_name).expect("Looking directory to cd"));
         self.cwd = dir_ref;
     }
 
