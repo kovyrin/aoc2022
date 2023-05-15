@@ -7,7 +7,6 @@ use anyhow::Context;
 type DirRef = Rc<RefCell<Dir>>;
 type DirSize = (String, usize);
 
-#[derive(Debug)]
 struct Dir {
     name: String,
     parent: Option<DirRef>,
@@ -44,7 +43,6 @@ impl Dir {
     }
 }
 
-#[derive(Debug)]
 struct Filesystem {
     root: DirRef,
     cwd: DirRef,
