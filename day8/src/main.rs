@@ -29,12 +29,6 @@ fn main() {
     let height = height_map.len();
     let width = height_map[0].len();
 
-    println!("Map ({}x{}):", width, height);
-    for row in &height_map {
-        for col in row { print!("{}", col) }
-        println!("");
-    }
-
     // Check rows
     for row in 0..height {
         visibility_map[row][0] = 1;
@@ -102,5 +96,47 @@ fn main() {
         println!("");
     }
 
-    println!("Total visible: {}", total_visible)
+    println!("Total visible: {}", total_visible);
+
+    let mut highest_score = 0;
+    for row in 0..height {
+        for col in 0..width {
+            let tree = height_map[row][col];
+
+            // Visibility down
+            let mut visible_down = 0;
+            for row in row+1..height {
+                visible_down += 1;
+                if height_map[row][col] >= tree { break }
+            }
+
+            // Visibility up
+            let mut visible_up = 0;
+            for row in (0..row).rev() {
+                visible_up += 1;
+                if height_map[row][col] >= tree { break }
+            }
+
+            // Visibility right
+            let mut visible_right = 0;
+            for col in col+1..width {
+                visible_right += 1;
+                if height_map[row][col] >= tree { break }
+            }
+
+            // Visibility left
+            let mut visible_left = 0;
+            for col in (0..col).rev() {
+                visible_left += 1;
+                if height_map[row][col] >= tree { break }
+            }
+
+            let score = visible_down * visible_up * visible_left * visible_right;
+            if score > highest_score {
+                highest_score = score;
+            }
+        }
+    }
+
+    println!("Highest score: {}", highest_score);
 }
