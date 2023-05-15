@@ -5,10 +5,8 @@ use std::cell::RefCell;
 use anyhow::Context;
 
 type DirRef = Rc<RefCell<Dir>>;
-type DirSize = (String, usize);
 
 struct Dir {
-    name: String,
     parent: Option<DirRef>,
     dirs: HashMap<String, DirRef>,
     files_size: usize,
@@ -16,14 +14,8 @@ struct Dir {
 }
 
 impl Dir {
-    fn new(name: &str, parent: Option<DirRef>) -> Self {
-        let full_name: String = match &parent {
-            None => name.to_string(),
-            Some(parent) => format!("{}/{}", parent.borrow().name, name)
-        };
-
+    fn new(parent: Option<DirRef>) -> Self {
         Dir {
-            name: full_name,
             parent: parent,
             dirs: HashMap::new(),
             files_size: 0,
@@ -31,9 +23,8 @@ impl Dir {
         }
     }
 
-    fn new_ref(name: &str, parent: Option<DirRef>) -> DirRef {
-        let dir = Dir::new(name, parent);
-        Rc::new(RefCell::new(dir))
+    fn new_ref(parent: Option<DirRef>) -> DirRef {
+        Rc::new(RefCell::new(Dir::new(parent)))
     }
 
     fn calculate_size(&mut self) -> usize {
@@ -50,7 +41,7 @@ struct Filesystem {
 
 impl Filesystem {
     fn new() -> Self {
-        let root_dir = Dir::new_ref("", None);
+        let root_dir = Dir::new_ref(None);
         Filesystem {
             root: Rc::clone(&root_dir),
             cwd: root_dir
@@ -74,7 +65,7 @@ impl Filesystem {
 
     fn parse_dir(&mut self, line: &str) {
         let dir_name = line[4..].to_string();
-        let dir = Dir::new_ref(&dir_name, Some(Rc::clone(&self.cwd)));
+        let dir = Dir::new_ref(Some(Rc::clone(&self.cwd)));
         self.cwd.borrow_mut().dirs.insert(dir_name, dir);
     }
 
@@ -119,7 +110,7 @@ struct DirIterator {
 }
 
 impl IntoIterator for &Filesystem {
-    type Item = DirSize;
+    type Item = usize;
     type IntoIter = DirIterator;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -128,7 +119,7 @@ impl IntoIterator for &Filesystem {
 }
 
 impl Iterator for DirIterator {
-    type Item = DirSize;
+    type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.dirs_to_walk.pop() {
@@ -136,7 +127,7 @@ impl Iterator for DirIterator {
             Some(dir) => {
                 let dir = dir.borrow();
                 self.dirs_to_walk.extend(dir.dirs.values().map(|r| Rc::clone(r)));
-                Some((dir.name.clone(), dir.total_size))
+                Some(dir.total_size)
             }
         }
     }
@@ -163,8 +154,7 @@ fn main() {
 
     fs.calculate_total_sizes();
 
-    let sub100k_dirs = fs.into_iter().filter(|d| d.1 < 100_000);
-    let total_sub100k: usize = sub100k_dirs.map(|d| d.1).sum();
+    let total_sub100k: usize = fs.into_iter().filter(|d| *d < 100_000).sum();
     println!("Total sub-100k dirs size: {}", total_sub100k);
 
     let total_used = fs.total_size();
@@ -172,9 +162,9 @@ fn main() {
     let space_to_free = SPACE_NEEDED - unused_space;
 
     let mut candidate_size = total_used;
-    fs.into_iter().for_each(|dir| {
-        if dir.1 > space_to_free && dir.1 < candidate_size {
-            candidate_size = dir.1
+    fs.into_iter().for_each(|dir_size| {
+        if dir_size > space_to_free && dir_size < candidate_size {
+            candidate_size = dir_size
         }
     });
     println!("Dir to delete size: {}", candidate_size);
