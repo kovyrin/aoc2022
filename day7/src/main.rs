@@ -2,12 +2,10 @@ use std::collections::HashMap;
 use std::{fs::read_to_string, str::Lines};
 use std::rc::Rc;
 use std::cell::RefCell;
-use anyhow::*;
+use anyhow::Context;
 
 type DirRef = Rc<RefCell<Dir>>;
-
-const TOTAL_DISK_SIZE: usize = 70000000;
-const SPACE_NEEDED: usize = 30000000;
+type DirSize = (String, usize);
 
 #[derive(Debug)]
 struct Dir {
@@ -44,16 +42,6 @@ impl Dir {
         self.total_size += self.dirs.values().map(|d| d.borrow_mut().calculate_size() ).sum::<usize>();
         self.total_size
     }
-
-    fn find_dirs_smaller_than(&self, limit: usize, results: &mut HashMap<String,usize>) {
-        if self.total_size <= limit {
-            results.insert(self.name.clone(), self.total_size);
-        }
-
-        for dir in self.dirs.values() {
-            dir.borrow().find_dirs_smaller_than(limit, results);
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -72,13 +60,9 @@ impl Filesystem {
     }
 
     fn parse_line(&mut self, line: &str) {
-        if line.is_empty(){
-            return;
-        }
-
-        match line.chars().next().unwrap() {
-            '$' => self.parse_command(line),
-            'd' => self.parse_dir(line),
+        match line.chars().next() {
+            Some('$') => self.parse_command(line),
+            Some('d') => self.parse_dir(line),
             _ => self.parse_file(line),
         }
     }
@@ -124,10 +108,45 @@ impl Filesystem {
         self.cwd = dir_ref;
     }
 
-    fn calculate_sizes(&self) {
+    fn calculate_total_sizes(&self) {
         self.root.borrow_mut().calculate_size();
     }
+
+    fn total_size(&self) -> usize {
+        self.root.borrow().total_size
+    }
+
 }
+
+struct DirIterator {
+    dirs_to_walk: Vec<DirRef>
+}
+
+impl IntoIterator for &Filesystem {
+    type Item = DirSize;
+    type IntoIter = DirIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        DirIterator { dirs_to_walk: [self.root.clone()].to_vec() }
+    }
+}
+
+impl Iterator for DirIterator {
+    type Item = DirSize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.dirs_to_walk.pop() {
+            None => None,
+            Some(dir) => {
+                self.dirs_to_walk.extend(dir.borrow().dirs.values().map(|r| Rc::clone(r)));
+                Some((dir.borrow().name.clone(), dir.borrow().total_size))
+            }
+        }
+    }
+}
+
+const TOTAL_DISK_SIZE: usize = 70000000;
+const SPACE_NEEDED: usize = 30000000;
 
 fn main() {
     // If first argument is "real", use the real input file
@@ -147,27 +166,23 @@ fn main() {
         output_parser.parse_line(line);
     }
 
-    output_parser.calculate_sizes();
+    output_parser.calculate_total_sizes();
 
-    let mut sub100k_dirs = HashMap::new();
-    output_parser.root.borrow().find_dirs_smaller_than(100_000, &mut sub100k_dirs);
-    println!("Large dirs: {:?}", sub100k_dirs);
-    let total: usize = sub100k_dirs.values().sum();
-    println!("Total size: {}", total);
+    let sub100k_dirs = output_parser.into_iter().filter(|d| d.1 < 100_000);
+    let total_sub100k: usize = sub100k_dirs.map(|d| d.1).sum();
+    println!("Total sub-100k dirs size: {}", total_sub100k);
 
-    let total_used = output_parser.root.borrow().total_size;
+    let total_used = output_parser.total_size();
     let unused_space = TOTAL_DISK_SIZE - total_used;
     let space_to_free = SPACE_NEEDED - unused_space;
     println!("Space needed to free: {}", space_to_free);
 
-    let mut all_dirs = HashMap::new();
-    output_parser.root.borrow().find_dirs_smaller_than(total_used, &mut all_dirs);
-    let mut dir_sizes: Vec<(&String, &usize)> = all_dirs.iter().map(|(k,v)| (k,v)).collect();
+    let mut dir_sizes: Vec<DirSize> = output_parser.into_iter().collect();
     dir_sizes.sort_by(|(_, size1), (_, size2)| size1.cmp(size2));
     println!("Sorted candidates: {:?}", dir_sizes);
 
     for (dir, size) in dir_sizes {
-        if *size >= space_to_free {
+        if size >= space_to_free {
             println!("Largest candidate: {} size {}", dir, size);
             break;
         }
