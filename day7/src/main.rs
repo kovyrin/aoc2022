@@ -6,6 +6,9 @@ use anyhow::*;
 
 type DirRef = Rc<RefCell<Dir>>;
 
+const TOTAL_DISK_SIZE: usize = 70000000;
+const SPACE_NEEDED: usize = 30000000;
+
 #[derive(Debug)]
 struct Dir {
     name: String,
@@ -145,10 +148,28 @@ fn main() {
     }
 
     output_parser.calculate_sizes();
-    let mut results = HashMap::new();
-    output_parser.root.borrow().find_dirs_smaller_than(100_000, &mut results);
-    println!("Large dirs: {:?}", results);
 
-    let total: usize = results.values().sum();
+    let mut sub100k_dirs = HashMap::new();
+    output_parser.root.borrow().find_dirs_smaller_than(100_000, &mut sub100k_dirs);
+    println!("Large dirs: {:?}", sub100k_dirs);
+    let total: usize = sub100k_dirs.values().sum();
     println!("Total size: {}", total);
+
+    let total_used = output_parser.root.borrow().total_size;
+    let unused_space = TOTAL_DISK_SIZE - total_used;
+    let space_to_free = SPACE_NEEDED - unused_space;
+    println!("Space needed to free: {}", space_to_free);
+
+    let mut all_dirs = HashMap::new();
+    output_parser.root.borrow().find_dirs_smaller_than(total_used, &mut all_dirs);
+    let mut dir_sizes: Vec<(&String, &usize)> = all_dirs.iter().map(|(k,v)| (k,v)).collect();
+    dir_sizes.sort_by(|(_, size1), (_, size2)| size1.cmp(size2));
+    println!("Sorted candidates: {:?}", dir_sizes);
+
+    for (dir, size) in dir_sizes {
+        if *size >= space_to_free {
+            println!("Largest candidate: {} size {}", dir, size);
+            break;
+        }
+    }
 }
