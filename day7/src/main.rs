@@ -161,26 +161,23 @@ fn main() {
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
     let lines: Lines = input.lines();
 
-    let mut output_parser = Filesystem::new();
+    let mut fs = Filesystem::new();
     for line in lines {
-        output_parser.parse_line(line);
+        fs.parse_line(line);
     }
 
-    output_parser.calculate_total_sizes();
+    fs.calculate_total_sizes();
 
-    let sub100k_dirs = output_parser.into_iter().filter(|d| d.1 < 100_000);
+    let sub100k_dirs = fs.into_iter().filter(|d| d.1 < 100_000);
     let total_sub100k: usize = sub100k_dirs.map(|d| d.1).sum();
     println!("Total sub-100k dirs size: {}", total_sub100k);
 
-    let total_used = output_parser.total_size();
+    let total_used = fs.total_size();
     let unused_space = TOTAL_DISK_SIZE - total_used;
     let space_to_free = SPACE_NEEDED - unused_space;
-    println!("Space needed to free: {}", space_to_free);
 
-    let mut dir_sizes: Vec<DirSize> = output_parser.into_iter().collect();
+    let mut dir_sizes: Vec<DirSize> = fs.into_iter().collect();
     dir_sizes.sort_by(|(_, size1), (_, size2)| size1.cmp(size2));
-    println!("Sorted candidates: {:?}", dir_sizes);
-
     for (dir, size) in dir_sizes {
         if size >= space_to_free {
             println!("Largest candidate: {} size {}", dir, size);
