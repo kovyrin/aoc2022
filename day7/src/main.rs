@@ -160,9 +160,7 @@ fn main() {
     let lines: Lines = input.lines();
 
     let mut fs = Filesystem::new();
-    for line in lines {
-        fs.parse_line(line);
-    }
+    lines.for_each(|l| fs.parse_line(l));
 
     fs.calculate_total_sizes();
 
