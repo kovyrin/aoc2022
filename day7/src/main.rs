@@ -66,9 +66,7 @@ impl Filesystem {
     }
 
     fn parse_command(&mut self, line: &str) {
-        if line.starts_with("$ ls") {
-            // nothing to do here
-        } else if line.starts_with("$ cd") {
+        if line.starts_with("$ cd") {
             let dir_name = &line[5..];
             self.cd(dir_name);
         }
@@ -136,8 +134,9 @@ impl Iterator for DirIterator {
         match self.dirs_to_walk.pop() {
             None => None,
             Some(dir) => {
-                self.dirs_to_walk.extend(dir.borrow().dirs.values().map(|r| Rc::clone(r)));
-                Some((dir.borrow().name.clone(), dir.borrow().total_size))
+                let dir = dir.borrow();
+                self.dirs_to_walk.extend(dir.dirs.values().map(|r| Rc::clone(r)));
+                Some((dir.name.clone(), dir.total_size))
             }
         }
     }
@@ -172,12 +171,11 @@ fn main() {
     let unused_space = TOTAL_DISK_SIZE - total_used;
     let space_to_free = SPACE_NEEDED - unused_space;
 
-    let mut dir_sizes: Vec<DirSize> = fs.into_iter().collect();
-    dir_sizes.sort_by(|(_, size1), (_, size2)| size1.cmp(size2));
-    for (dir, size) in dir_sizes {
-        if size >= space_to_free {
-            println!("Largest candidate: {} size {}", dir, size);
-            break;
+    let mut candidate_size = total_used;
+    fs.into_iter().for_each(|dir| {
+        if dir.1 > space_to_free && dir.1 < candidate_size {
+            candidate_size = dir.1
         }
-    }
+    });
+    println!("Dir to delete size: {}", candidate_size);
 }
