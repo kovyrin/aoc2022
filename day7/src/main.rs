@@ -8,7 +8,7 @@ type DirRef = Rc<RefCell<Dir>>;
 
 struct Dir {
     parent: Option<DirRef>,
-    dirs: HashMap<String, DirRef>,
+    sub_dirs: HashMap<String, DirRef>,
     files_size: usize,
     total_size: usize,
 }
@@ -17,7 +17,7 @@ impl Dir {
     fn new(parent: Option<DirRef>) -> Self {
         Dir {
             parent: parent,
-            dirs: HashMap::new(),
+            sub_dirs: HashMap::new(),
             files_size: 0,
             total_size: 0,
         }
@@ -29,7 +29,7 @@ impl Dir {
 
     fn calculate_size(&mut self) -> usize {
         self.total_size = self.files_size;
-        self.total_size += self.dirs.values().map(|d| d.borrow_mut().calculate_size() ).sum::<usize>();
+        self.total_size += self.sub_dirs.values().map(|d| d.borrow_mut().calculate_size() ).sum::<usize>();
         self.total_size
     }
 }
@@ -66,7 +66,7 @@ impl Filesystem {
     fn parse_dir(&mut self, line: &str) {
         let dir_name = line[4..].to_string();
         let dir = Dir::new_ref(Some(Rc::clone(&self.cwd)));
-        self.cwd.borrow_mut().dirs.insert(dir_name, dir);
+        self.cwd.borrow_mut().sub_dirs.insert(dir_name, dir);
     }
 
     fn parse_file(&self, line: &str) {
@@ -91,7 +91,7 @@ impl Filesystem {
             return
         }
 
-        let dir_ref = Rc::clone(self.cwd.borrow().dirs.get(dir_name).expect("Looking directory to cd"));
+        let dir_ref = Rc::clone(self.cwd.borrow().sub_dirs.get(dir_name).expect("Looking directory to cd"));
         self.cwd = dir_ref;
     }
 
@@ -126,7 +126,7 @@ impl Iterator for DirIterator {
             None => None,
             Some(dir) => {
                 let dir = dir.borrow();
-                self.dirs_to_walk.extend(dir.dirs.values().map(|r| Rc::clone(r)));
+                self.dirs_to_walk.extend(dir.sub_dirs.values().map(|r| Rc::clone(r)));
                 Some(dir.total_size)
             }
         }
