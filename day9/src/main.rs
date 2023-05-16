@@ -107,7 +107,7 @@ fn main() -> Result<()>{
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
     let lines: Lines = input.lines();
 
-    let mut rope = Rope::new(2);
+    let mut rope = Rope::new(10);
     for line in lines {
         let direction = line.chars().next().expect("parsing direction");
         let steps = line[2..].parse::<u32>().expect("parsing step");
