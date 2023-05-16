@@ -59,25 +59,37 @@ impl Point {
 
 #[derive(Debug)]
 struct Rope {
-    head: Point,
-    tail: Point,
+    knots: Vec<Point>,
     tail_positions: HashSet<Point>
 }
 
 impl Rope {
-    fn new() -> Self {
+    fn new(len: usize) -> Self {
+        let mut knots = Vec::with_capacity(len);
+        for _ in 0..len {
+            knots.push(Point { x: 0, y: 0})
+        }
         Rope {
-            head: Point { x: 0, y: 0 },
-            tail: Point { x: 0, y: 0 },
+            knots,
             tail_positions: HashSet::default(),
         }
     }
 
     fn mov(&mut self, steps: u32, direction: char) {
         for _ in 0..steps {
-            self.head.mov(direction);
-            self.tail.chase(&self.head);
-            self.tail_positions.insert(self.tail.clone());
+            let rope_len = self.knots.len();
+
+            // Move the head
+            self.knots[0].mov(direction);
+
+            // Calculate the movement of other knots
+            for i in 1..rope_len {
+                let previous_knot = self.knots[i-1].clone();
+                self.knots[i].chase(&previous_knot);
+            }
+
+            // Register position of the tail
+            self.tail_positions.insert(self.knots[rope_len-1].clone());
         }
     }
 }
@@ -95,7 +107,7 @@ fn main() -> Result<()>{
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
     let lines: Lines = input.lines();
 
-    let mut rope = Rope::new();
+    let mut rope = Rope::new(2);
     for line in lines {
         let direction = line.chars().next().expect("parsing direction");
         let steps = line[2..].parse::<u32>().expect("parsing step");
