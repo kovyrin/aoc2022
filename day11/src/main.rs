@@ -3,13 +3,13 @@ use anyhow::{Result, Context};
 
 #[derive(Debug)]
 enum Operation {
-    Add(u32),
-    Mul(u32),
+    Add(u64),
+    Mul(u64),
     Square,
 }
 
 impl Operation {
-    fn run(&self, operand: u32) -> u32 {
+    fn run(&self, operand: u64) -> u64 {
         match self {
             Operation::Add(x) => operand + x,
             Operation::Mul(x) => operand * x,
@@ -20,16 +20,16 @@ impl Operation {
 
 #[derive(Debug)]
 struct Monkey {
-    items: VecDeque<u32>,
+    items: VecDeque<u64>,
     op: Operation,
-    test_div: u32,
+    test_div: u64,
     test_pass_dst: usize,
     test_fail_dst: usize,
 }
 
 impl Monkey {
-    fn items_from_line(line: Option<&str>) -> VecDeque<u32> {
-        line.expect("loading items")[18..].split(", ").map(|i| i.parse::<u32>().unwrap()).collect()
+    fn items_from_line(line: Option<&str>) -> VecDeque<u64> {
+        line.expect("loading items")[18..].split(", ").map(|i| i.parse::<u64>().unwrap()).collect()
     }
 
     fn operation_from_line(line: Option<&str>) -> Operation {
@@ -54,7 +54,7 @@ impl Monkey {
         }
     }
 
-    fn test_div_from_line(line: Option<&str>) -> u32 {
+    fn test_div_from_line(line: Option<&str>) -> u64 {
         let line = line.expect("parsing test");
         line[21..].parse().expect("parsing test divisor")
     }
@@ -81,7 +81,7 @@ impl Monkey {
         Monkey { items, op, test_div, test_pass_dst, test_fail_dst }
     }
 
-    fn test(&self, value: u32) -> usize {
+    fn test(&self, value: u64) -> usize {
         if value % self.test_div == 0 {
             self.test_pass_dst
         } else {
@@ -90,16 +90,13 @@ impl Monkey {
     }
 }
 
+#[derive(Default)]
 struct Game {
     monkeys: Vec<Monkey>,
     activity: Vec<u32>,
 }
 
 impl Game {
-    fn new() -> Self {
-        Game { monkeys: Vec::new() }
-    }
-
     fn push(&mut self, monkey: Monkey) {
         self.monkeys.push(monkey);
         self.activity.resize(self.monkeys.len(), 0);
@@ -112,7 +109,7 @@ impl Game {
         }
     }
 
-    fn process_item(&mut self, monkey_idx: usize, item: u32) {
+    fn process_item(&mut self, monkey_idx: usize, item: u64) {
         self.activity[monkey_idx] += 1;
         let monkey = &self.monkeys[monkey_idx];
         let result = monkey.op.run(item);
@@ -131,8 +128,6 @@ impl Game {
     }
 }
 
-
-
 fn main() -> Result<()>{
     // If first argument is "real", use the real input file
     // Otherwise, use the test input file
@@ -146,16 +141,25 @@ fn main() -> Result<()>{
     let input: String = read_to_string(input_file).context("failed to read the data file")?;
     let mut lines: Lines = input.lines();
 
-    let mut game = Game::new();
+    let mut game = Game::default();
 
-    while let Some(_header) = lines.find(|l| l.starts_with("Monkey")) {
+    while let Some(_) = lines.find(|l| l.starts_with("Monkey")) {
         let monkey = Monkey::from_lines(&mut lines);
         game.push(monkey);
     }
 
     game.print_monkeys();
-    game.round();
-    game.print_monkeys();
+    for _round in 0..20 {
+        game.round();
+        game.print_monkeys();
+    }
+
+    game.activity.sort();
+    game.activity.reverse();
+    println!("Activity: {:?}", game.activity);
+
+    let monkey_business = game.activity[0] * game.activity[1];
+    println!("Monkey business: {monkey_business}");
 
     Ok(())
 }
