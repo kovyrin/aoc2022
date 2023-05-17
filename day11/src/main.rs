@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, str::Lines};
+use std::{fs::read_to_string, str::Lines, collections::VecDeque};
 use anyhow::{Result, Context};
 
 #[derive(Debug)]
@@ -8,17 +8,27 @@ enum Operation {
     Square,
 }
 
+impl Operation {
+    fn run(&self, operand: u32) -> u32 {
+        match self {
+            Operation::Add(x) => operand + x,
+            Operation::Mul(x) => operand * x,
+            Operation::Square => operand * operand
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Monkey {
-    items: Vec<u32>,
+    items: VecDeque<u32>,
     op: Operation,
     test_div: u32,
-    test_pass_dst: u32,
-    test_fail_dst: u32,
+    test_pass_dst: usize,
+    test_fail_dst: usize,
 }
 
 impl Monkey {
-    fn items_from_line(line: Option<&str>) -> Vec<u32> {
+    fn items_from_line(line: Option<&str>) -> VecDeque<u32> {
         line.expect("loading items")[18..].split(", ").map(|i| i.parse::<u32>().unwrap()).collect()
     }
 
@@ -40,7 +50,7 @@ impl Monkey {
                     Operation::Mul(operand_int)
                 }
             },
-            s => panic!("unknown operator: {}", s)
+            s => panic!("unknown operator: {s}")
         }
     }
 
@@ -49,7 +59,7 @@ impl Monkey {
         line[21..].parse().expect("parsing test divisor")
     }
 
-    fn test_dst_from_line(line: Option<&str>) -> u32 {
+    fn test_dst_from_line(line: Option<&str>) -> usize {
         let line = line.expect("parsing test result");
         line.split_whitespace().last().expect("loading monkey number")
             .parse().expect("parsing test throw monkey")
@@ -68,12 +78,57 @@ impl Monkey {
         let test_pass_dst = Self::test_dst_from_line(lines.next());
         let test_fail_dst = Self::test_dst_from_line(lines.next());
 
-        let test_success_str = lines.next().expect("loading test success");
-        let test_fail_str = lines.next().expect("loading test success");
-
         Monkey { items, op, test_div, test_pass_dst, test_fail_dst }
     }
+
+    fn test(&self, value: u32) -> usize {
+        if value % self.test_div == 0 {
+            self.test_pass_dst
+        } else {
+            self.test_fail_dst
+        }
+    }
 }
+
+struct Game {
+    monkeys: Vec<Monkey>
+}
+
+impl Game {
+    fn new() -> Self {
+        Game { monkeys: Vec::new() }
+    }
+
+    fn push(&mut self, monkey: Monkey) {
+        self.monkeys.push(monkey)
+    }
+
+    fn print_monkeys(&self) {
+        println!("Monkeys:");
+        for monkey in self.monkeys.iter() {
+            println!(" - {:?}", monkey);
+        }
+    }
+
+    fn process_item(&mut self, monkey_idx: usize, item: u32) {
+        let monkey = &self.monkeys[monkey_idx];
+        let result = monkey.op.run(item);
+        let bored_result = result / 3;
+        let dst = monkey.test(bored_result);
+        self.monkeys[dst].items.push_back(bored_result);
+    }
+
+    fn round(&mut self) {
+        for m in 0..self.monkeys.len() {
+            let items = std::mem::take(&mut self.monkeys[m].items);
+            for item in items {
+                self.process_item(m, item);
+            }
+        }
+    }
+}
+
+
 
 fn main() -> Result<()>{
     // If first argument is "real", use the real input file
@@ -83,22 +138,21 @@ fn main() -> Result<()>{
     } else {
         "demo-input.txt"
     };
-    println!("Using input file: {}", input_file);
+    println!("Using input file: {input_file}");
 
     let input: String = read_to_string(input_file).context("failed to read the data file")?;
     let mut lines: Lines = input.lines();
 
-    let mut monkeys: Vec<Monkey> = Vec::new();
+    let mut game = Game::new();
 
-    while let Some(header) = lines.find(|l| l.starts_with("Monkey")) {
+    while let Some(_header) = lines.find(|l| l.starts_with("Monkey")) {
         let monkey = Monkey::from_lines(&mut lines);
-        monkeys.push(monkey);
+        game.push(monkey);
     }
 
-    println!("Monkeys:");
-    for monkey in monkeys.into_iter() {
-        println!(" - {:?}", monkey);
-    }
+    game.print_monkeys();
+    game.round();
+    game.print_monkeys();
 
     Ok(())
 }
