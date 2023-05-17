@@ -90,14 +90,23 @@ impl Monkey {
     }
 }
 
-#[derive(Default)]
 struct Game {
     monkeys: Vec<Monkey>,
-    activity: Vec<u32>,
+    activity: Vec<u64>,
+    modulus: u64,
 }
 
 impl Game {
+    fn new() -> Self {
+        Game {
+            monkeys: Vec::new(),
+            activity: Vec::new(),
+            modulus: 1
+        }
+    }
+
     fn push(&mut self, monkey: Monkey) {
+        self.modulus *= monkey.test_div;
         self.monkeys.push(monkey);
         self.activity.resize(self.monkeys.len(), 0);
     }
@@ -113,9 +122,8 @@ impl Game {
         self.activity[monkey_idx] += 1;
         let monkey = &self.monkeys[monkey_idx];
         let result = monkey.op.run(item);
-        let bored_result = result / 3;
-        let dst = monkey.test(bored_result);
-        self.monkeys[dst].items.push_back(bored_result);
+        let dst = monkey.test(result);
+        self.monkeys[dst].items.push_back(result % self.modulus);
     }
 
     fn round(&mut self) {
@@ -141,7 +149,7 @@ fn main() -> Result<()>{
     let input: String = read_to_string(input_file).context("failed to read the data file")?;
     let mut lines: Lines = input.lines();
 
-    let mut game = Game::default();
+    let mut game = Game::new();
 
     while let Some(_) = lines.find(|l| l.starts_with("Monkey")) {
         let monkey = Monkey::from_lines(&mut lines);
@@ -149,15 +157,14 @@ fn main() -> Result<()>{
     }
 
     game.print_monkeys();
-    for _round in 0..20 {
+    for _round in 0..10000 {
         game.round();
-        game.print_monkeys();
     }
 
     game.activity.sort();
     game.activity.reverse();
-    println!("Activity: {:?}", game.activity);
 
+    println!("Sorted activity: {:?}", game.activity);
     let monkey_business = game.activity[0] * game.activity[1];
     println!("Monkey business: {monkey_business}");
 
