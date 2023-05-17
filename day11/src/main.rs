@@ -91,7 +91,8 @@ impl Monkey {
 }
 
 struct Game {
-    monkeys: Vec<Monkey>
+    monkeys: Vec<Monkey>,
+    activity: Vec<u32>,
 }
 
 impl Game {
@@ -100,7 +101,8 @@ impl Game {
     }
 
     fn push(&mut self, monkey: Monkey) {
-        self.monkeys.push(monkey)
+        self.monkeys.push(monkey);
+        self.activity.resize(self.monkeys.len(), 0);
     }
 
     fn print_monkeys(&self) {
@@ -111,6 +113,7 @@ impl Game {
     }
 
     fn process_item(&mut self, monkey_idx: usize, item: u32) {
+        self.activity[monkey_idx] += 1;
         let monkey = &self.monkeys[monkey_idx];
         let result = monkey.op.run(item);
         let bored_result = result / 3;
