@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, str::Lines};
+use std::{fs::read_to_string, str::{Lines, Chars}, iter::Peekable};
 use anyhow::{Context, Result};
 
 #[derive(Debug)]
@@ -8,44 +8,37 @@ enum List {
 }
 
 impl List {
-    fn list_from_str(line: &str) -> (usize, List) {
+    fn list_from_str(line: &mut Peekable<Chars>) -> List {
+        line.next();
         let mut list_vals = Vec::default();
-        let chars: Vec<char> = line.chars().collect();
-        let mut len = 1;
-        loop {
-            match chars[len] {
+        while let Some(c) = line.peek() {
+            match c {
                 c if c.is_numeric() => {
-                    let parse_res = Self::number_from_str(&line[len..]);
-                    len += parse_res.0;
-                    list_vals.push(parse_res.1);
+                    let value = Self::number_from_str(line);
+                    list_vals.push(value);
                 },
                 '[' => {
-                    let parse_res = Self::list_from_str(&line[len..]);
-                    len += parse_res.0;
-                    list_vals.push(parse_res.1);
+                    let value = Self::list_from_str(line);
+                    list_vals.push(value);
                 },
-                ',' => len += 1,
                 ']' => {
-                    len += 1;
+                    line.next();
                     break;
                 }
-
-                c => panic!("Unexpected character at pos {}: {}", len, c)
+                _ => { line.next(); }
             }
         }
-        (len, List::List(list_vals))
+        List::List(list_vals)
     }
 
-    fn number_from_str(line: &str) -> (usize, List) {
-        let mut len = line.len();
-        for (i, c) in line.chars().enumerate() {
-            if !c.is_numeric() {
-                len = i;
-                break
-            }
+    fn number_from_str(line: &mut Peekable<Chars>) -> List {
+        let mut value = "".to_string();
+        while let Some(c) = line.next() {
+            if !c.is_numeric() { break }
+            value.push(c);
         }
-        let value = line[0..len].parse().expect("int parsing");
-        (len, List::Single(value))
+        let value = value.parse().expect("int parsing");
+        List::Single(value)
     }
 }
 
@@ -67,8 +60,8 @@ fn main() -> Result<()>{
         let line1 = lines.next().expect("line 1 read");
         let line2 = lines.next().expect("line 1 read");
 
-        let list1 = List::list_from_str(line1);
-        let list2 = List::list_from_str(line2);
+        let list1 = List::list_from_str(&mut line1.chars().peekable());
+        let list2 = List::list_from_str(&mut line2.chars().peekable());
 
         println!("Line 1: {:?}", line1);
         println!("List 1: {:?}", list1);
