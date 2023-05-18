@@ -9,7 +9,6 @@ enum List {
 
 impl List {
     fn list_from_str(line: &mut Peekable<Chars>) -> List {
-        line.next();
         let mut list_vals = Vec::default();
         while let Some(c) = line.peek() {
             match c {
@@ -18,6 +17,7 @@ impl List {
                     list_vals.push(value);
                 },
                 '[' => {
+                    line.next();
                     let value = Self::list_from_str(line);
                     list_vals.push(value);
                 },
@@ -25,14 +25,16 @@ impl List {
                     line.next();
                     break;
                 }
-                _ => { line.next(); }
+                _ => {
+                    line.next();
+                }
             }
         }
         List::List(list_vals)
     }
 
     fn number_from_str(line: &mut Peekable<Chars>) -> List {
-        let mut value = "".to_string();
+        let mut value = String::with_capacity(1);
         while let Some(c) = line.next() {
             if !c.is_numeric() { break }
             value.push(c);
@@ -57,8 +59,8 @@ fn main() -> Result<()>{
     let mut lines: Lines = input.lines();
 
     loop {
-        let line1 = lines.next().expect("line 1 read");
-        let line2 = lines.next().expect("line 1 read");
+        let line1 = lines.next().expect("reading line 1");
+        let line2 = lines.next().expect("reading line 2");
 
         let list1 = List::list_from_str(&mut line1.chars().peekable());
         let list2 = List::list_from_str(&mut line2.chars().peekable());
