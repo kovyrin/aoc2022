@@ -34,13 +34,8 @@ impl List {
     }
 
     fn number_from_str(line: &mut Peekable<Chars>) -> List {
-        let mut value = String::with_capacity(1);
-        while let Some(c) = line.next() {
-            if !c.is_numeric() { break }
-            value.push(c);
-        }
-        let value = value.parse().expect("int parsing");
-        List::Single(value)
+        let value: String = line.by_ref().take_while(|c| c.is_digit(10)).collect();
+        List::Single(value.parse().expect("int parsing"))
     }
 }
 
