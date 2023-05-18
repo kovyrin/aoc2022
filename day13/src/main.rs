@@ -1,7 +1,7 @@
 use std::{fs::read_to_string, str::{Lines, Chars}, iter::Peekable, cmp::Ordering, fmt::Write};
 use anyhow::{Context, Result};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Packet {
     Single(usize),
     List(Vec<Packet>)
@@ -12,7 +12,7 @@ impl std::fmt::Display for Packet {
         match self {
             Packet::List(items) => {
                 f.write_char('[')?;
-                let str = items.iter().map(|i| format!("{i}")).collect::<Vec<String>>().join("");
+                let str = items.iter().map(|i| format!("{i}")).collect::<Vec<String>>().join(",");
                 write!(f, "{str}")?;
                 f.write_char(']')
             },
@@ -22,6 +22,10 @@ impl std::fmt::Display for Packet {
 }
 
 impl Packet {
+    fn from_str(line: &str) -> Packet {
+        Self::list_from_str(&mut line.chars().peekable())
+    }
+
     fn list_from_str(line: &mut Peekable<Chars>) -> Packet {
         let mut list_vals = Vec::default();
         while let Some(c) = line.peek() {
@@ -52,12 +56,40 @@ impl Packet {
         Packet::Single(value.parse().expect("int parsing"))
     }
 
-    fn smaller_than(&self, other: &Packet) -> bool {
-        match (self, other) {
-            (Packet::List(right), Packet::List(left)) => {
-                self::compare_lists(right, left).is_lt()
+    fn cmp(&self, right: &Self) -> Ordering {
+        let left = self;
+        match (left, right) {
+            (Packet::Single(left), Packet::Single(right)) => {
+                left.cmp(right)
             },
-            _ => false
+            (Packet::List(left), Packet::List(right)) => {
+                return Self::compare_lists(left, right)
+            },
+            (Packet::List(_), Packet::Single(right)) => {
+                let right = Packet::List(vec![Packet::Single(*right)]);
+                return left.cmp(&right);
+            },
+            (Packet::Single(left), Packet::List(_)) => {
+                let left = Packet::List(vec![Packet::Single(*left)]);
+                return left.cmp(&right);
+            },
+        }
+    }
+
+    fn compare_lists(left: &Vec<Packet>, right: &Vec<Packet>) -> Ordering {
+        for pos in 0..left.len() {
+            if pos >= right.len() {
+                return Ordering::Greater
+            }
+            let left = &left[pos];
+            let right = &right[pos];
+            let res = left.cmp(right);
+            if !res.is_eq() { return res }
+        }
+        if left.len() == right.len() {
+            Ordering::Equal
+        } else {
+            Ordering::Less
         }
     }
 }
@@ -74,73 +106,28 @@ fn main() -> Result<()>{
     println!("Using input file: {input_file}");
 
     let input: String = read_to_string(input_file).context("failed to read the data file")?;
-    let mut lines: Lines = input.lines();
-    let mut pair_index = 1;
-    let mut index_sum = 0;
+    let lines: Lines = input.lines();
 
-    loop {
-        println!("====== Pair {pair_index} ======");
+    let mut packets: Vec<Packet> = Vec::default();
 
-        let line1 = lines.next().expect("reading line 1");
-        let line2 = lines.next().expect("reading line 2");
-        println!("- {}", line1);
-        println!("- {}", line2);
+    let divider2 = Packet::from_str("[[2]]");
+    let divider6 = Packet::from_str("[[6]]");
+    packets.push(divider2.clone());
+    packets.push(divider6.clone());
 
-        let line1 = Packet::list_from_str(&mut line1.chars().peekable());
-        let line2 = Packet::list_from_str(&mut line2.chars().peekable());
-
-
-        if line1.smaller_than(&line2) {
-            println!("+ Ordering is correct");
-            index_sum += pair_index;
-        } else {
-            println!("- Ordering is incorrect");
-        }
-
-        if let None = lines.next() { break }
-        pair_index += 1;
-        println!();
+    for line in lines {
+        if line.is_empty() { continue }
+        let packet = Packet::from_str(line);
+        packets.push(packet);
     }
 
-    println!("Sum of list indexes that are in correct order: {index_sum}");
+    packets.sort_by(|a,b| a.cmp(b));
+
+    let pos2 = packets.iter().position(|p| p.eq(&divider2) ).unwrap() + 1;
+    let pos6 = packets.iter().position(|p| p.eq(&divider6) ).unwrap() + 1;
+
+    println!("Positions for dividers: {pos2} and {pos6}");
+    println!("Result: {}", pos2*pos6);
+
     Ok(())
-}
-
-fn compare_one_item(left: &Packet, right: &Packet) -> Ordering {
-    println!("Compare {} vs {}", left, right);
-    match (left, right) {
-        (Packet::Single(left), Packet::Single(right)) => {
-            left.cmp(right)
-        },
-        (Packet::List(left), Packet::List(right)) => {
-            return compare_lists(left, right)
-        },
-        (Packet::List(_), Packet::Single(right)) => {
-            let right = Packet::List(vec![Packet::Single(*right)]);
-            return compare_one_item(left, &right)
-        },
-        (Packet::Single(left), Packet::List(_)) => {
-            let left = Packet::List(vec![Packet::Single(*left)]);
-            return compare_one_item(&left, right)
-        },
-    }
-}
-
-fn compare_lists(left: &Vec<Packet>, right: &Vec<Packet>) -> Ordering {
-    for pos in 0..left.len() {
-        if pos >= right.len() {
-            println!("* Right ran out of items");
-            return Ordering::Greater
-        }
-        let left = &left[pos];
-        let right = &right[pos];
-        let res = compare_one_item(left, right);
-        if !res.is_eq() { return res }
-    }
-    if left.len() == right.len() {
-        return Ordering::Equal
-    } else {
-        println!("* Left ran out of items");
-        Ordering::Less
-    }
 }
