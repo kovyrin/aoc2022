@@ -47,7 +47,6 @@ fn main() -> Result<()>{
 
     let mut map: Vec<Vec<char>> = Vec::default();
 
-    let mut start = Coord::default();
     let mut end = Coord::default();
 
     let mut cur_row: usize = 1;
@@ -56,11 +55,6 @@ fn main() -> Result<()>{
         let mut map_row = vec!['~'; line.len() + 2];
         for (i, c) in line.chars().enumerate() {
             map_row[i + 1] = c;
-        }
-
-        if let Some(col) = map_row.iter().position(|c| *c == 'S') {
-            start = Coord { x: col, y: cur_row };
-            map_row[col] = 'a';
         }
 
         if let Some(col) = map_row.iter().position(|c| *c == 'E') {
@@ -77,7 +71,6 @@ fn main() -> Result<()>{
     let height = map.len();
 
     println!("Map: {width}x{height}");
-    println!("Start: {:?}", start);
     println!("End: {:?}", end);
     for row in map.iter() {
         for col in row {
@@ -90,8 +83,14 @@ fn main() -> Result<()>{
     let mut path_len: Vec<Vec<usize>> = Vec::default();
     path_len.resize(height, vec![0;width]);
 
-    let first_step = Step { coord: start, src_height: 'a', path_len: 0 };
-    let mut steps_to_check = Vec::from([first_step]);
+    let mut steps_to_check = Vec::default();
+    for row in 0..height {
+        for col in 0..width {
+            if map[row][col] == 'a' {
+                steps_to_check.push(Step { coord: Coord { x: col, y: row }, path_len: 0, src_height: 'a' })
+            }
+        }
+    }
 
     let mut shortest_len = 1000000000;
     while let Some(step) = steps_to_check.pop() {
