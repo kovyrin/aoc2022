@@ -57,14 +57,11 @@ fn main() -> Result<()>{
         let line1 = lines.next().expect("reading line 1");
         let line2 = lines.next().expect("reading line 2");
 
-        let list1 = List::list_from_str(&mut line1.chars().peekable());
-        let list2 = List::list_from_str(&mut line2.chars().peekable());
+        let line1 = List::list_from_str(&mut line1.chars().peekable());
+        let line2 = List::list_from_str(&mut line2.chars().peekable());
 
         println!("Line 1: {:?}", line1);
-        println!("List 1: {:?}", list1);
-
-        println!("Line 2: {:?}", line2);
-        println!("List 2: {:?}", list2);
+        println!("List 2: {:?}", line2);
 
         if let None = lines.next() { break }
     }
