@@ -66,7 +66,8 @@ impl Map {
     }
 
     fn simulate_sand(&mut self) -> bool {
-        let mut sand = Point { x: 500, y: 0 };
+        let start = Point { x: 500, y: 0 };
+        let mut sand = start.clone();
         loop {
             if self.tiles[sand.y+1][sand.x] == Tile::Air {
                 sand.y += 1;
@@ -81,7 +82,7 @@ impl Map {
                 break;
             }
         }
-        sand == Point { x: 500, y: 0 }
+        sand == start
     }
 }
 
