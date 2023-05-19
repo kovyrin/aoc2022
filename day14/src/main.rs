@@ -34,6 +34,11 @@ impl Map {
         }
     }
 
+    fn add_floor(&mut self) {
+        let floor = vec![Tile::Rock;self.tiles[0].len()];
+        self.tiles.push(floor);
+    }
+
     fn draw_rock_path(&mut self, segment_start: &Point, segment_end: &Point) {
         if segment_start.x == segment_end.x {
             self.draw_vertical_path(segment_start, segment_end);
@@ -63,27 +68,20 @@ impl Map {
     fn simulate_sand(&mut self) -> bool {
         let mut sand = Point { x: 500, y: 0 };
         loop {
-            if sand.y == self.tiles.len() - 1 {
-                println!("Infinite fall at {:?}", sand);
-                return true; // infinite fall
-            }
             if self.tiles[sand.y+1][sand.x] == Tile::Air {
-                println!("Fall down to {:?}", sand);
                 sand.y += 1;
             } else if self.tiles[sand.y+1][sand.x-1] == Tile::Air {
-                println!("Fall down-left to {:?}", sand);
                 sand.x -= 1;
                 sand.y += 1;
             } else if self.tiles[sand.y+1][sand.x+1] == Tile::Air {
-                println!("Fall down-right to {:?}", sand);
                 sand.x += 1;
                 sand.y += 1;
             } else {
                 self.tiles[sand.y][sand.x] = Tile::Sand;
-                println!("At rest at {:?}", sand);
-                return false; // stopped at rest
+                break;
             }
         }
+        sand == Point { x: 500, y: 0 }
     }
 }
 
@@ -122,18 +120,16 @@ fn main() -> Result<()>{
         rock_paths.push(rock_path);
     }
 
-    let mut map = Map::new(map_width + 1, map_height + 1);
+    let mut map = Map::new(map_width * 2, map_height + 2);
     for rock_line in rock_paths.iter() {
         map.draw_rock_paths(rock_line);
     }
+    map.add_floor();
 
     let mut sand_count = 0;
     loop {
-        if map.simulate_sand() {
-            break
-        } else {
-            sand_count += 1;
-        }
+        sand_count += 1;
+        if map.simulate_sand() { break }
     }
 
     println!("Finished after {sand_count} iterations");
