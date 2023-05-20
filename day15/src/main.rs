@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, str::Lines, collections::HashSet};
+use std::{fs::read_to_string, str::Lines, ops::Range};
 use anyhow::{Context,Result, Ok};
 use regex::Regex;
 
@@ -12,6 +12,21 @@ struct Point {
 struct Sensor {
     coord: Point,
     range: i32,
+}
+
+impl Sensor {
+    fn from_str(line: &str) -> Self {
+        let (sensor, beacon) = parse_sensor_and_beacon_locations(line);
+        let range = manhattan_range(&sensor, &beacon);
+        Sensor { coord: sensor, range: range }
+    }
+
+    fn find_blackouts(&self, row: i32) -> Range<i32> {
+        let row_to_sensor = (row - self.coord.y).abs();
+        let blackout_range_start = self.coord.x - self.range + row_to_sensor;
+        let blackout_range_end = self.coord.x + self.range - row_to_sensor;
+        blackout_range_start..blackout_range_end
+    }
 }
 
 fn parse_sensor_and_beacon_locations(input: &str) -> (Point, Point) {
@@ -50,13 +65,9 @@ fn main() -> Result<()>{
                         .split_whitespace().nth(1).expect("get rows")
                         .parse().expect("parse rows count");
 
-    let mut total_sensors = 0;
     let sensors = lines.map(|line| {
-        let (sensor, beacon) = parse_sensor_and_beacon_locations(line);
-        let range = manhattan_range(&sensor, &beacon);
-        let sensor = Sensor { coord: sensor, range: range };
+        let sensor = Sensor::from_str(line);
         println!("Parsed sensor = {:?} ", sensor);
-        total_sensors += 1;
         sensor
     });
 
@@ -65,32 +76,42 @@ fn main() -> Result<()>{
         (sensor.coord.y - row).abs() < sensor.range
     }).collect();
 
-    println!("Sensors in range from row {} (out of {}):", row, total_sensors);
     for sensor in sensors_in_range.iter() {
         println!("- {:?}", sensor);
     }
 
-    let mut blackout_x: HashSet<i32> = HashSet::default();
+
+    let mut blackout_ranges = Vec::default();
     for sensor in sensors_in_range.iter() {
-        find_sensor_blackouts(sensor, row, &mut blackout_x);
+        let blackout_range = sensor.find_blackouts(row);
+        blackout_ranges.push(blackout_range);
     }
 
-    println!("Number of unique blackout points: {}", blackout_x.len());
+    println!("Number of unique blackout points: {}", total_values_in_ranges(&mut blackout_ranges));
 
     Ok(())
 }
 
-fn find_sensor_blackouts(sensor: &Sensor, row: i32, blackout_x: &mut HashSet<i32>) {
-    println!("Analyzing sensor: {:?}", sensor);
+// Courtesy of ChatGPT
+fn total_values_in_ranges(ranges: &mut [std::ops::Range<i32>]) -> i32 {
+    ranges.sort_unstable_by(|a, b| a.start.cmp(&b.start));
 
-    let row_to_sensor = (row - sensor.coord.y).abs();
-    println!("Row to sensor distance: {row_to_sensor}");
+    let mut current_range = ranges[0].clone();
+    let mut total_length = 0;
 
-    let blackout_range_start = sensor.coord.x - sensor.range + row_to_sensor;
-    let blackout_range_end = sensor.coord.x + sensor.range - row_to_sensor;
-    println!("Blackout range: {}..{}", blackout_range_start, blackout_range_end);
-
-    for x in blackout_range_start..blackout_range_end {
-        blackout_x.insert(x);
+    for range in &ranges[1..] {
+        if range.start <= current_range.end {
+            // Ranges overlap, merge them
+            current_range.end = range.end.max(current_range.end);
+        } else {
+            // Ranges do not overlap, add the current range's length to the total
+            total_length += current_range.end - current_range.start;
+            current_range = range.clone();
+        }
     }
+
+    // Don't forget to add the final range's length
+    total_length += current_range.end - current_range.start;
+
+    total_length
 }
