@@ -66,20 +66,13 @@ fn main() -> Result<()>{
                         .parse().expect("parse rows count");
 
     let sensors = lines.map(|line| {
-        let sensor = Sensor::from_str(line);
-        println!("Parsed sensor = {:?} ", sensor);
-        sensor
+        Sensor::from_str(line)
     });
 
     // Find all sensors that cannot reach the given row
     let sensors_in_range: Vec<Sensor> = sensors.filter(|sensor| {
         (sensor.coord.y - row).abs() < sensor.range
     }).collect();
-
-    for sensor in sensors_in_range.iter() {
-        println!("- {:?}", sensor);
-    }
-
 
     let mut blackout_ranges = Vec::default();
     for sensor in sensors_in_range.iter() {
