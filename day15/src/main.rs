@@ -51,7 +51,8 @@ fn manhattan_range(p1: &Point, p2: &Point) -> i32 {
 fn main() -> Result<()>{
     // If first argument is "real", use the real input file
     // Otherwise, use the test input file
-    let input_file = if std::env::args().nth(1).unwrap_or(String::default()).eq("real") {
+    let input_type = std::env::args().nth(1).unwrap_or(String::default());
+    let input_file = if input_type.eq("real") {
         "real-input.txt"
     } else {
         "demo-input.txt"
@@ -59,11 +60,9 @@ fn main() -> Result<()>{
     println!("Using input file: {}", input_file);
 
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
-    let mut lines: Lines = input.lines();
+    let lines: Lines = input.lines();
 
-    let row: i32 = lines.next().expect("read row line")
-                        .split_whitespace().nth(1).expect("get rows")
-                        .parse().expect("parse rows count");
+    let row: i32 = if input_type.eq("real") { 2000000 } else { 10 };
 
     let sensors = lines.map(|line| {
         Sensor::from_str(line)

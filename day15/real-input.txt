@@ -1,4 +1,3 @@
-Row: 2000000
 Sensor at x=1943362, y=12808: closest beacon is at x=1861152, y=-42022
 Sensor at x=906633, y=3319637: closest beacon is at x=2096195, y=3402757
 Sensor at x=2358896, y=2158796: closest beacon is at x=2331052, y=2934800
