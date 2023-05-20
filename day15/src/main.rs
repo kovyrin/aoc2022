@@ -21,11 +21,11 @@ impl Sensor {
         Sensor { coord: sensor, range: range }
     }
 
-    fn find_blackouts(&self, row: i32) -> Range<i32> {
+    fn find_blackouts(&self, row: i32, max_x: i32) -> Range<i32> {
         let row_to_sensor = (row - self.coord.y).abs();
-        let blackout_range_start = self.coord.x - self.range + row_to_sensor;
-        let blackout_range_end = self.coord.x + self.range - row_to_sensor;
-        blackout_range_start..blackout_range_end
+        let blackout_range_start = (self.coord.x - self.range + row_to_sensor).clamp(0, max_x);
+        let blackout_range_end = (self.coord.x + self.range - row_to_sensor).clamp(0, max_x);
+        blackout_range_start..blackout_range_end+1
     }
 }
 
@@ -62,26 +62,43 @@ fn main() -> Result<()>{
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
     let lines: Lines = input.lines();
 
-    let row: i32 = if input_type.eq("real") { 2000000 } else { 10 };
+    let sensors: Vec<Sensor> = lines.map(|line| { Sensor::from_str(line) }).collect();
+    let max_coord = if input_type.eq("real") { 4_000_000 } else { 20 };
+    let total_possible_x = max_coord + 1;
 
-    let sensors = lines.map(|line| {
-        Sensor::from_str(line)
-    });
+    for row in 0..=max_coord {
+        // Find all sensors that can reach the given row
+        let sensors_in_range: Vec<&Sensor> = sensors.iter().filter(|sensor| {
+            (sensor.coord.y - row).abs() < sensor.range
+        }).collect();
 
-    // Find all sensors that cannot reach the given row
-    let sensors_in_range: Vec<Sensor> = sensors.filter(|sensor| {
-        (sensor.coord.y - row).abs() < sensor.range
-    }).collect();
+        let mut blackout_ranges = Vec::default();
+        for sensor in sensors_in_range {
+            let blackout_range = sensor.find_blackouts(row, max_coord);
+            blackout_ranges.push(blackout_range);
+        }
 
-    let mut blackout_ranges = Vec::default();
-    for sensor in sensors_in_range.iter() {
-        let blackout_range = sensor.find_blackouts(row);
-        blackout_ranges.push(blackout_range);
+        let blackout_vals = total_values_in_ranges(&mut blackout_ranges);
+        if blackout_vals >= total_possible_x { continue }
+
+        println!("Total blacked out values: {}", blackout_vals);
+
+        for col in 0..=max_coord {
+            if !is_in_range(col, &blackout_ranges) {
+                println!("Found coordinate for the beacon: {}, {}", col, row);
+                let tuning_frequency = 4_000_000 * col as u128 + row as u128;
+                println!("Tuning frequency: {}", tuning_frequency);
+                return Ok(());
+            }
+        }
     }
-
-    println!("Number of unique blackout points: {}", total_values_in_ranges(&mut blackout_ranges));
+    println!("Didn't find the beacon");
 
     Ok(())
+}
+
+fn is_in_range(col: i32, blackout: &Vec<Range<i32>>) -> bool {
+    blackout.iter().any(|r| r.contains(&col))
 }
 
 // Courtesy of ChatGPT
