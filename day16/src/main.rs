@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, str::Lines, fs::read_to_string};
+use std::{collections::{HashMap, VecDeque}, str::Lines, fs::read_to_string};
 use anyhow::Context;
 use regex::Regex;
 
@@ -19,29 +19,15 @@ impl Valve {
         (name, Valve { flow_rate, connections })
     }
 }
+#[derive(Debug, Default)]
 struct Volcano {
     valves: HashMap<String, Valve>,
-    best_flow: usize,
-}
-
-#[derive(Debug)]
-struct Invariant {
-    current_cave_name: String,
-    path: Vec<String>,
-    open_valves: HashSet<String>,
-    cumulative_flow: usize,
-    steps_remaining: i16
-}
-
-impl Invariant {
-    fn is_current_valve_closed(&self) -> bool {
-        !self.open_valves.contains(&self.current_cave_name)
-    }
+    distance_from_start: HashMap<String, u16>,
 }
 
 impl Volcano {
     fn from_lines(lines: Lines) -> Self {
-        let mut volcano = Volcano { valves: HashMap::new(), best_flow: 0 };
+        let mut volcano = Volcano::default();
         for line in lines {
             let (name, valve) = Valve::from_str(line);
             volcano.valves.insert(name, valve);
@@ -49,99 +35,53 @@ impl Volcano {
         volcano
     }
 
-    fn total_flow(&self, open_valves: &HashSet<String>) -> usize {
-        open_valves.iter().map(|v| self.valves[v].flow_rate).sum()
-    }
-
-    fn walk_caves(&mut self, step: Invariant) {
-        println!("Step:");
-        println!("- path: {:?}", step.path);
-        println!("- open: {:?}", step.open_valves);
-
-        if step.steps_remaining < 0 { return }
-        if step.steps_remaining == 0 {
-            if step.cumulative_flow > self.best_flow {
-                println!("Found the best flow of {} with path {:?}", step.cumulative_flow, step.path);
-                self.best_flow = step.cumulative_flow;
-            }
-            return
-        }
-
-        let current_cave_name = step.current_cave_name.clone();
-        let current_valve = (*self.valves.get(&current_cave_name).expect("cave lookup")).clone();
-
-        let cumulative_flow = self.total_flow(&step.open_valves) + step.cumulative_flow;
-        let is_fully_open = self.is_fully_open(&step);
-
-        if is_fully_open {
-            println!("Fully open!");
-        }
-
-        if step.is_current_valve_closed() || current_valve.flow_rate > 0 {
-            // Open the current valve
-            let mut open_valves = step.open_valves.clone();
-            open_valves.insert(step.current_cave_name.clone());
-
-            // Calculate cumulative flow for next step
-            let cumulative_flow = cumulative_flow + current_valve.flow_rate;
-
-            if !is_fully_open {
-                for cave in current_valve.connections.iter() {
-                    let mut path = step.path.clone();
-                    path.push(cave.clone());
-
-                    let next_step = Invariant {
-                        current_cave_name: cave.clone(),
-                        path,
-                        open_valves: open_valves.clone(),
-                        cumulative_flow,
-                        steps_remaining: step.steps_remaining - 2
-                    };
-
-                    self.walk_caves(next_step);
+    fn calculate_distances_from_start(&mut self) {
+        self.distance_from_start.insert("AA".to_string(), 0);
+        while self.valves.len() != self.distance_from_start.len() {
+            for (name, valve) in self.valves.iter() {
+                if self.distance_from_start.contains_key(name) { continue };
+                let dist_from_start = valve.connections.iter()
+                    .filter(|v| self.distance_from_start.contains_key(*v))
+                    .map(|v| self.distance_from_start.get(v).expect("get neighbor distance"))
+                    .min();
+                if dist_from_start.is_some() {
+                    self.distance_from_start.insert(name.clone(), *dist_from_start.unwrap() + 1);
                 }
             }
         }
-
-        // Try walking the graph without touching the valve
-        if !is_fully_open {
-            for cave in current_valve.connections.iter() {
-                let mut path = step.path.clone();
-                path.push(cave.clone());
-
-                let next_step = Invariant {
-                    current_cave_name: cave.clone(),
-                    path,
-                    open_valves: step.open_valves.clone(),
-                    cumulative_flow,
-                    steps_remaining: step.steps_remaining - 1
-                };
-
-                self.walk_caves(next_step);
-            }
-        }
     }
 
-    fn find_maximum_pressure(&mut self) {
-        let start_cave = "AA".to_string();
-        self.walk_caves(
-            Invariant {
-                current_cave_name: start_cave.clone(),
-                path: vec![start_cave],
-                open_valves: HashSet::new(),
-                steps_remaining: 30,
-                cumulative_flow: 0,
-            }
-        );
-    }
-
-    fn is_fully_open(&self, step: &Invariant) -> bool {
-        for valve in self.valves.keys() {
-            if !step.open_valves.contains(valve) {
-                return false
+    fn calculate_optimal_opening_order(&self) -> VecDeque<(String, f32)> {
+        let mut valves = Vec::default();
+        for (name, valve) in self.valves.iter() {
+            if valve.flow_rate > 0 {
+                let dist = *self.distance_from_start.get(name).expect("distance load");
+                let cost_of_flow = valve.flow_rate as f32 / dist as f32;
+                valves.push((name.clone(), cost_of_flow));
             }
         }
-        true
+        valves.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        VecDeque::from(valves)
+    }
+
+    fn simulate(&self, opening_order: Vec<&str>) {
+        let valve_order: VecDeque<String> = opening_order.iter().map(|s| s.to_string()).collect();
+        let current_cave = "AA".to_string();
+        let mut minute = 1;
+        let mut flow_per_min = 0;
+        let mut released = 0;
+
+        while minute <= 30 {
+            match valve_order.pop_front() {
+                Some(dest) => {
+                    released += flow_per_min + self.distance_between[current_cave][dest];
+                },
+                None => {
+                    released += flow_per_min;
+                    minute += 1;
+                }
+            }
+        }
     }
 }
 
@@ -160,11 +100,18 @@ fn main() {
     let lines: Lines = input.lines();
     let mut volcano = Volcano::from_lines(lines);
 
-    volcano.find_maximum_pressure();
+    volcano.calculate_distances_from_start();
 
-    // for (i, (name, valve)) in valves.iter().enumerate() {
-    //     println!("Valve {} flow rate {} connected to {:?}", name, valve.flow_rate, valve.connections);
-    // }
+    println!("Distances from start:");
+    for (name, dist) in volcano.distance_from_start.iter() {
+        println!(" - {name}: {dist}");
+    }
 
+    let path: VecDeque<(String, f32)> = volcano.calculate_optimal_opening_order();
+    println!("Opening order:");
+    for (valve, cost) in path.iter() {
+        println!("- {valve} ({cost})");
+    }
 
+    volcano.simulate(vec!["DD", "BB", "JJ", "HH", "EE", "CC"]);
 }
