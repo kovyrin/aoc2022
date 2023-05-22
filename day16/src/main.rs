@@ -27,7 +27,6 @@ struct Volcano {
 #[derive(Debug)]
 struct Invariant {
     current_cave: String,
-    path: Vec<String>,
     unopened_valves: HashSet<String>,
     minute: usize,
     flow_per_min: usize,
@@ -77,7 +76,6 @@ impl Volcano {
 
         let start_invariant = Invariant {
             current_cave: start.to_owned(),
-            path: vec![start.to_owned()],
             unopened_valves: working_valves,
             minute: 1,
             flow_per_min: 0,
@@ -100,12 +98,8 @@ impl Volcano {
             let remaining_unopened = i.unopened_valves.iter().filter(|v| *v != next_name).cloned().collect();
             let next_flow = self.valves.get(next_name).expect("valve fetch").flow_rate;
 
-            let mut new_path = i.path.clone();
-            new_path.push(next_name.to_owned());
-
             let next_step = Invariant {
                 current_cave: next_name.to_owned(),
-                path: new_path,
                 unopened_valves: remaining_unopened,
                 minute: i.minute + time_for_step,
                 flow_per_min: i.flow_per_min + next_flow,
@@ -116,7 +110,7 @@ impl Volcano {
 
         let total_release = i.released + (30 - i.minute + 1) * i.flow_per_min;
         if total_release > *best_release {
-            println!("Best new path: {:?} with total release of {}", i.path, total_release);
+            println!("Best new path with total release of {}", total_release);
             *best_release = total_release;
         }
     }
