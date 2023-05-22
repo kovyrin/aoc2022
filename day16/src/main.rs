@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, str::Lines, fs::read_to_string, hash::Hash};
+use std::{collections::{HashMap, VecDeque}, str::Lines, fs::read_to_string, hash::Hash, usize::MAX};
 use anyhow::Context;
 use regex::Regex;
 
@@ -22,6 +22,7 @@ impl Valve {
 #[derive(Debug, Default)]
 struct Volcano {
     valves: HashMap<String, Valve>,
+    working_valves: Vec<String>,
     distance_between: HashMap<String, HashMap<String, usize>>,
 }
 
@@ -30,48 +31,38 @@ impl Volcano {
         let mut volcano = Volcano::default();
         for line in lines {
             let (name, valve) = Valve::from_str(line);
+            if valve.flow_rate > 0 {
+                volcano.working_valves.push(name.clone());
+            }
             volcano.valves.insert(name, valve);
         }
         volcano
     }
 
-    fn calculate_distances_between_caves(&mut self) {
+    fn calculate_distances_between_all_caves(&mut self) {
         for start in self.valves.keys() {
-            if !self.distance_between.contains_key(start) {
-                self.distance_between.insert(start.clone(), HashMap::default());
-            }
-            let distance_from_start = self.distance_between.get_mut(start).expect("distance from start");
+            let distance_from_start = self.distance_between.entry(start.clone()).or_default();
             distance_from_start.insert(start.clone(), 0);
 
             while self.valves.len() != distance_from_start.len() {
                 for (name, valve) in self.valves.iter() {
-                    if distance_from_start.contains_key(name) { continue };
-                    let dist_from_start = valve.connections.iter()
-                        .filter(|v| distance_from_start.contains_key(*v))
-                        .map(|v| distance_from_start.get(v).expect("get neighbor distance"))
+                    let known_distance_len = distance_from_start.get(name).unwrap_or(&MAX);
+                    let dist_from_start = valve.connections
+                        .iter()
+                        .filter_map(|v| distance_from_start.get(v))
                         .min();
-                    if dist_from_start.is_some() {
-                        distance_from_start.insert(name.clone(), *dist_from_start.unwrap() + 1);
+                    if let Some(&min_dist_from_start) = dist_from_start {
+                        let new_min_dist = min_dist_from_start + 1;
+                        if new_min_dist < *known_distance_len {
+                            distance_from_start.insert(name.to_owned(),  new_min_dist);
+                        }
                     }
                 }
             }
         }
     }
 
-    // fn calculate_optimal_opening_order(&self) -> VecDeque<(String, f32)> {
-    //     let mut valves = Vec::default();
-    //     for (name, valve) in self.valves.iter() {
-    //         if valve.flow_rate > 0 {
-    //             let dist = *self.distance_from_start.get(name).expect("distance load");
-    //             let cost_of_flow = valve.flow_rate as f32 / dist as f32;
-    //             valves.push((name.clone(), cost_of_flow));
-    //         }
-    //     }
-    //     valves.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-    //     VecDeque::from(valves)
-    // }
-
-    fn simulate(&self, opening_order: Vec<&str>) {
+    fn simulate(&self, opening_order: Vec<&str>) -> usize {
         println!("Simulating path: {:?}", opening_order);
 
         let mut valve_order: VecDeque<String> = opening_order.iter().map(|s| s.to_string()).collect();
@@ -79,29 +70,41 @@ impl Volcano {
         let mut minute = 1;
         let mut flow_per_min: usize = 0;
         let mut released = 0;
+        let mut total_open = 0;
 
         while minute <= 30 {
-            println!("Minute: {}", minute);
-
             match valve_order.pop_front() {
                 Some(dest) => {
                     let distances_from_cur = self.distance_between.get(&current_cave).expect("dist from cur");
                     let dist_to_dest = distances_from_cur.get(&dest).expect("dist to dest");
                     let time_for_action = dist_to_dest + 1;
 
+                    if minute + time_for_action > 30 { break }
+
                     minute += time_for_action;
                     released += flow_per_min * time_for_action;
+
+                    println!("Opening {} on minute {}", dest, minute);
+                    total_open += 1;
                     current_cave = dest;
                     flow_per_min += self.valves.get(&current_cave).expect("valve fetch").flow_rate;
                 },
-                None => {
-                    released += flow_per_min;
-                    minute += 1;
-                }
+                None => { break }
             }
         }
-        println!("Total release: {}\n", released);
+
+        released += flow_per_min * (30 - minute + 1);
+
+        println!("Total release after opening {} valves: {}\n", total_open, released);
+        released
     }
+
+    fn find_best_release(&self) -> usize {
+        let mut best_release = 0;
+        best_release += 1;
+        best_release
+    }
+
 }
 
 fn main() {
@@ -119,8 +122,7 @@ fn main() {
     let lines: Lines = input.lines();
     let mut volcano = Volcano::from_lines(lines);
 
-    volcano.calculate_distances_between_caves();
-
+    volcano.calculate_distances_between_all_caves();
     println!("Distances between caves:");
     for (start, distances_to) in volcano.distance_between.iter() {
         if !start.eq("AA") && volcano.valves.get(start).unwrap().flow_rate == 0 { continue }
@@ -133,12 +135,22 @@ fn main() {
     }
     println!();
 
-    // let path: VecDeque<(String, f32)> = volcano.calculate_optimal_opening_order();
-    // println!("Opening order:");
-    // for (valve, cost) in path.iter() {
-    //     println!("- {valve} ({cost})");
-    // }
+    let start = "AA".to_string();
+    let distances_from_start = volcano.distance_between.get(&start).unwrap();
+    println!("Distances from {start}:");
+    for (end, distance) in distances_from_start.iter() {
+        if volcano.valves.get(end).unwrap().flow_rate == 0 { continue }
+        println!(" - to {}: {}", end, distance);
+    }
+    println!();
 
-    volcano.simulate(vec!["DD", "BB", "JJ", "HH", "EE", "CC"]);
-    volcano.simulate(vec!["DD", "JJ", "BB", "HH", "EE", "CC"]);
+    let best_release = volcano.find_best_release();
+    println!("Best release value found: {best_release}")
+
+    // volcano.simulate(vec!["DD", "BB", "JJ", "HH", "EE", "CC"]);
+    // volcano.simulate(vec!["DD", "JJ", "BB", "HH", "EE", "CC"]);
 }
+
+// real range:
+// - 1339 is too low
+// - 1525 is too high
