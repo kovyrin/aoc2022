@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, str::Lines, fs::read_to_string, hash::Hash, usize::MAX};
+use std::{collections::{HashMap, VecDeque, HashSet}, str::Lines, fs::read_to_string, usize::MAX};
 use anyhow::Context;
 use regex::Regex;
 
@@ -22,8 +22,18 @@ impl Valve {
 #[derive(Debug, Default)]
 struct Volcano {
     valves: HashMap<String, Valve>,
-    working_valves: Vec<String>,
+    working_valves: HashSet<String>,
     distance_between: HashMap<String, HashMap<String, usize>>,
+}
+
+#[derive(Debug)]
+struct Invariant {
+    current_cave: String,
+    path: Vec<String>,
+    unopened_valves: HashSet<String>,
+    minute: usize,
+    flow_per_min: usize,
+    released: usize,
 }
 
 impl Volcano {
@@ -32,7 +42,7 @@ impl Volcano {
         for line in lines {
             let (name, valve) = Valve::from_str(line);
             if valve.flow_rate > 0 {
-                volcano.working_valves.push(name.clone());
+                volcano.working_valves.insert(name.clone());
             }
             volcano.valves.insert(name, valve);
         }
@@ -101,10 +111,52 @@ impl Volcano {
 
     fn find_best_release(&self) -> usize {
         let mut best_release = 0;
-        best_release += 1;
+        let start = "AA".to_string();
+        let start_invariant = Invariant {
+            current_cave: start.clone(),
+            path: vec![start],
+            unopened_valves: self.working_valves.clone(),
+            minute: 1,
+            flow_per_min: 0,
+            released: 0,
+        };
+
+        self.walk_the_caves(start_invariant, &mut best_release);
         best_release
     }
 
+    fn walk_the_caves(&self, i: Invariant, best_release: &mut usize) {
+        for next_name in i.unopened_valves.iter() {
+            let distances_from_cur = self.distance_between.get(&i.current_cave).expect("dist from cur");
+            let dist_to_dest = distances_from_cur.get(next_name).expect("dist to dest");
+            let time_for_step = dist_to_dest + 1;
+
+            // Cannot take this step, it will take more than 30 min to finish
+            if i.minute + time_for_step > 30 { continue }
+
+            let remaining_unopened = i.unopened_valves.iter().filter(|v| !v.eq(&next_name)).map(|x| x.clone()).collect();
+            let next_flow = self.valves.get(next_name).expect("valve fetch").flow_rate;
+
+            let mut new_path = i.path.clone();
+            new_path.push(next_name.clone());
+
+            let next_step = Invariant {
+                current_cave: next_name.clone(),
+                path: new_path,
+                unopened_valves: remaining_unopened,
+                minute: i.minute + time_for_step,
+                flow_per_min: i.flow_per_min + next_flow,
+                released: i.released + i.flow_per_min * time_for_step,
+            };
+            self.walk_the_caves(next_step, best_release);
+        }
+
+        let total_release = i.released + (30 - i.minute + 1) * i.flow_per_min;
+        if total_release > *best_release {
+            println!("Best new path: {:?}", i.path);
+            *best_release = total_release;
+        }
+    }
 }
 
 fn main() {
@@ -146,11 +198,9 @@ fn main() {
 
     let best_release = volcano.find_best_release();
     println!("Best release value found: {best_release}")
-
-    // volcano.simulate(vec!["DD", "BB", "JJ", "HH", "EE", "CC"]);
-    // volcano.simulate(vec!["DD", "JJ", "BB", "HH", "EE", "CC"]);
 }
 
 // real range:
 // - 1339 is too low
+// - 1488 is valid
 // - 1525 is too high
