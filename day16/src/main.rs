@@ -11,7 +11,6 @@ struct Valve {
 impl Valve {
     fn from_str(line: &str) -> (String, Self) {
         let re = Regex::new(r"Valve (\w+) has flow rate=(\d+); tunnels? leads? to valves? (.*)").expect("regex init");
-        println!("Parsing: {}", line);
         let valve_cap = re.captures(line).expect("capture valve def");
         let name = valve_cap[1].to_string();
         let flow_rate = valve_cap[2].parse().expect("parse flow rate");
@@ -117,7 +116,7 @@ impl Volcano {
 
         let total_release = i.released + (30 - i.minute + 1) * i.flow_per_min;
         if total_release > *best_release {
-            println!("Best new path: {:?}", i.path);
+            println!("Best new path: {:?} with total release of {}", i.path, total_release);
             *best_release = total_release;
         }
     }
