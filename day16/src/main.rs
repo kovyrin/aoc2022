@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque, HashSet}, str::Lines, fs::read_to_string, usize::MAX};
+use std::{collections::{HashMap, HashSet}, str::Lines, fs::read_to_string, usize::MAX};
 use anyhow::Context;
 use regex::Regex;
 
@@ -22,7 +22,6 @@ impl Valve {
 #[derive(Debug, Default)]
 struct Volcano {
     valves: HashMap<String, Valve>,
-    working_valves: HashSet<String>,
     distance_between: HashMap<String, HashMap<String, usize>>,
 }
 
@@ -41,9 +40,6 @@ impl Volcano {
         let mut volcano = Volcano::default();
         for line in lines {
             let (name, valve) = Valve::from_str(line);
-            if valve.flow_rate > 0 {
-                volcano.working_valves.insert(name.clone());
-            }
             volcano.valves.insert(name, valve);
         }
         volcano
@@ -51,8 +47,8 @@ impl Volcano {
 
     fn calculate_distances_between_all_caves(&mut self) {
         for start in self.valves.keys() {
-            let distance_from_start = self.distance_between.entry(start.clone()).or_default();
-            distance_from_start.insert(start.clone(), 0);
+            let distance_from_start = self.distance_between.entry(start.to_owned()).or_default();
+            distance_from_start.insert(start.to_owned(), 0);
 
             while self.valves.len() != distance_from_start.len() {
                 for (name, valve) in self.valves.iter() {
@@ -72,50 +68,18 @@ impl Volcano {
         }
     }
 
-    fn simulate(&self, opening_order: Vec<&str>) -> usize {
-        println!("Simulating path: {:?}", opening_order);
-
-        let mut valve_order: VecDeque<String> = opening_order.iter().map(|s| s.to_string()).collect();
-        let mut current_cave = "AA".to_string();
-        let mut minute = 1;
-        let mut flow_per_min: usize = 0;
-        let mut released = 0;
-        let mut total_open = 0;
-
-        while minute <= 30 {
-            match valve_order.pop_front() {
-                Some(dest) => {
-                    let distances_from_cur = self.distance_between.get(&current_cave).expect("dist from cur");
-                    let dist_to_dest = distances_from_cur.get(&dest).expect("dist to dest");
-                    let time_for_action = dist_to_dest + 1;
-
-                    if minute + time_for_action > 30 { break }
-
-                    minute += time_for_action;
-                    released += flow_per_min * time_for_action;
-
-                    println!("Opening {} on minute {}", dest, minute);
-                    total_open += 1;
-                    current_cave = dest;
-                    flow_per_min += self.valves.get(&current_cave).expect("valve fetch").flow_rate;
-                },
-                None => { break }
-            }
-        }
-
-        released += flow_per_min * (30 - minute + 1);
-
-        println!("Total release after opening {} valves: {}\n", total_open, released);
-        released
-    }
-
     fn find_best_release(&self) -> usize {
         let mut best_release = 0;
         let start = "AA".to_string();
+        let working_valves: HashSet<String> = self.valves.iter()
+            .filter(|(_,v)| v.flow_rate > 0)
+            .map(|(k,_)| k.to_owned())
+            .collect();
+
         let start_invariant = Invariant {
-            current_cave: start.clone(),
-            path: vec![start],
-            unopened_valves: self.working_valves.clone(),
+            current_cave: start.to_owned(),
+            path: vec![start.to_owned()],
+            unopened_valves: working_valves,
             minute: 1,
             flow_per_min: 0,
             released: 0,
@@ -134,14 +98,14 @@ impl Volcano {
             // Cannot take this step, it will take more than 30 min to finish
             if i.minute + time_for_step > 30 { continue }
 
-            let remaining_unopened = i.unopened_valves.iter().filter(|v| !v.eq(&next_name)).map(|x| x.clone()).collect();
+            let remaining_unopened = i.unopened_valves.iter().filter(|v| *v != next_name).cloned().collect();
             let next_flow = self.valves.get(next_name).expect("valve fetch").flow_rate;
 
             let mut new_path = i.path.clone();
-            new_path.push(next_name.clone());
+            new_path.push(next_name.to_owned());
 
             let next_step = Invariant {
-                current_cave: next_name.clone(),
+                current_cave: next_name.to_owned(),
                 path: new_path,
                 unopened_valves: remaining_unopened,
                 minute: i.minute + time_for_step,
@@ -172,29 +136,9 @@ fn main() {
 
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
     let lines: Lines = input.lines();
+
     let mut volcano = Volcano::from_lines(lines);
-
     volcano.calculate_distances_between_all_caves();
-    println!("Distances between caves:");
-    for (start, distances_to) in volcano.distance_between.iter() {
-        if !start.eq("AA") && volcano.valves.get(start).unwrap().flow_rate == 0 { continue }
-        println!("Distances from {start}:");
-        for (end, distance) in distances_to.iter() {
-            if volcano.valves.get(end).unwrap().flow_rate == 0 { continue }
-            println!(" - to {}: {}", end, distance);
-        }
-        println!();
-    }
-    println!();
-
-    let start = "AA".to_string();
-    let distances_from_start = volcano.distance_between.get(&start).unwrap();
-    println!("Distances from {start}:");
-    for (end, distance) in distances_from_start.iter() {
-        if volcano.valves.get(end).unwrap().flow_rate == 0 { continue }
-        println!(" - to {}: {}", end, distance);
-    }
-    println!();
 
     let best_release = volcano.find_best_release();
     println!("Best release value found: {best_release}")
