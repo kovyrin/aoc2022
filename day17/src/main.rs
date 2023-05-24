@@ -269,9 +269,10 @@ fn main() {
 fn find_step_pattern(steps: &mut [usize]) -> &[usize] {
     steps.reverse();
 
-    let beginning_pattern = &steps[0..10];
-    for i in 10..steps.len() {
-        let subset = &steps[i..i+10];
+    const CHECK_LEN: usize = 16;
+    let beginning_pattern = &steps[0..CHECK_LEN];
+    for i in CHECK_LEN..steps.len() {
+        let subset = &steps[i..i+CHECK_LEN];
         if subset == beginning_pattern {
             let final_pattern = &mut steps[0..i];
             final_pattern.reverse();
