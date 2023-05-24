@@ -21,7 +21,6 @@ impl Jet {
 
 #[derive(Debug, Clone)]
 struct Rock {
-    name: String,
     shape: Vec<Vec<char>>,
     width: usize,
     height: usize,
@@ -37,8 +36,6 @@ struct FallingRock {
 #[derive(Debug)]
 struct Chamber {
     field: Vec<Vec<char>>,
-    floor: usize,
-    spawn_row: usize,
     highest_point: usize,
     rock: Option<FallingRock>,
 }
@@ -46,21 +43,19 @@ struct Chamber {
 impl Chamber {
     fn new(height: usize) -> Self {
         Chamber {
-            field: vec![vec!['.'; 7]; height],
-            floor: height - 1,
-            highest_point: height - 1,
-            spawn_row: height - 1 - 3,
+            field: vec![vec!['.'; 7]; 10],
+            highest_point: 0,
             rock: None
         }
     }
 
     fn tower_height(&self) -> usize {
-        self.floor - self.highest_point
+        self.highest_point
     }
 
     fn print(&self, step: String) {
         println!("{}:", step);
-        for row_idx in self.spawn_row - 3..=self.floor {
+        for row_idx in (0..self.field.len()-1).rev() {
             let row = &self.field[row_idx];
             print!("{row_idx}\t|");
             for c in row { print!("{c}");}
@@ -75,8 +70,9 @@ impl Chamber {
         let rock = &falling_rock.rock;
         for row in 0..rock.height {
             for col in 0..rock.width {
-                if rock.shape[row][col] != '.' {
-                    self.field[falling_rock.row - rock.height + row + 1][falling_rock.col + col] = c;
+                if rock.shape[rock.height - row - 1][col] != '.' {
+                    // println!("Drawing pixel {},{}", falling_rock.col + col, falling_rock.row + row);
+                    self.field[falling_rock.row + row][falling_rock.col + col] = c;
                 }
             }
         }
@@ -86,7 +82,7 @@ impl Chamber {
         let falling_rock = FallingRock {
             rock: rock.clone(),
             col: 2,
-            row: self.spawn_row
+            row: self.highest_point + 3,
         };
         self.rock = Some(falling_rock);
         self.draw_rock('@');
@@ -112,7 +108,7 @@ impl Chamber {
     fn maybe_move_rock(&mut self, shift: i32) {
         if let Some(falling_rock) = self.rock.as_ref() {
             let new_col = falling_rock.col as i32 + shift;
-            if !self.no_collisions(new_col, falling_rock.row) { return }
+            if !self.no_collisions(new_col, falling_rock.row as i32) { return }
             self.rock.as_mut().unwrap().col = new_col as usize;
         }
     }
@@ -126,32 +122,34 @@ impl Chamber {
         let height = falling_rock.rock.height;
         let rock_row = falling_rock.row;
 
-        if self.no_collisions(falling_rock.col as i32, rock_row + 1) {
-            self.rock.as_mut().unwrap().row += 1;
+        if self.no_collisions(falling_rock.col as i32, rock_row as i32 - 1) {
+            self.rock.as_mut().unwrap().row -= 1;
             self.draw_rock('@'); // bring the rock back
             return;
         }
 
         self.draw_rock('#'); // rock has come to rest
-        if self.highest_point > rock_row - height {
-            self.highest_point = rock_row - height;
-            // println!("New highest point: {}", self.tower_height());
+        if self.highest_point < rock_row + height {
+            self.highest_point = rock_row + height;
+            println!("New highest point: {}", self.tower_height());
+            let desired_field_height = self.highest_point + 10;
+            let need_rows = desired_field_height - self.field.len();
+            for _ in 0..need_rows { self.field.push(vec!['.';7]); }
         }
-        self.spawn_row = self.highest_point - 3;
         self.rock = None;
     }
 
-    fn no_collisions(&self, new_col: i32, new_row: usize) -> bool {
+    fn no_collisions(&self, new_col: i32, new_row: i32) -> bool {
         if let Some(falling_rock) = self.rock.as_ref() {
             let rock = &falling_rock.rock;
-            if new_col < 0 || new_col + rock.width as i32 > 7 || new_row > self.floor {
+            if new_col < 0 || new_col + rock.width as i32 > 7 || new_row < 0 {
                 return false;
             }
 
             for row in 0..rock.height {
                 for col in 0..rock.width {
-                    if rock.shape[row][col] == '.' { continue }
-                    if self.field[new_row - rock.height + row + 1][new_col as usize + col] != '.' {
+                    if rock.shape[rock.height - row - 1][col] == '.' { continue }
+                    if self.field[new_row as usize + row][new_col as usize + col] != '.' {
                         return false;
                     }
                 }
@@ -178,7 +176,6 @@ fn main() {
 
     let mut rocks = Vec::new();
     rocks.push(Rock {
-        name: "minus".to_string(),
         width: 4,
         height: 1,
         shape: vec![
@@ -187,7 +184,6 @@ fn main() {
     });
 
     rocks.push(Rock {
-        name: "plus".to_string(),
         width: 3,
         height: 3,
         shape: vec![
@@ -198,7 +194,6 @@ fn main() {
     });
 
     rocks.push(Rock {
-        name: "corner".to_string(),
         width: 3,
         height: 3,
         shape: vec![
@@ -209,7 +204,6 @@ fn main() {
     });
 
     rocks.push(Rock {
-        name: "I".to_string(),
         width: 1,
         height: 4,
         shape: vec![
@@ -221,7 +215,6 @@ fn main() {
     });
 
     rocks.push(Rock {
-        name: "cube".to_string(),
         width: 2,
         height: 2,
         shape: vec![
@@ -241,7 +234,7 @@ fn main() {
         if chamber.rock.is_none() {
             let rock = &rocks[rock_idx];
             chamber.drop_rock(rock);
-            // chamber.print(format!("Dropped rock {}", rock.name));
+            // chamber.print(format!("Dropped rock {}", rock_idx));
             rocks_count += 1;
             rock_idx = (rock_idx + 1) % rocks.len();
         }
@@ -254,6 +247,7 @@ fn main() {
 
         // Try moving the rock down
         chamber.maybe_move_rock_down();
+        // chamber.print(format!("Maybe moved down"));
     }
 
     println!("Highest point: {}", chamber.tower_height());
