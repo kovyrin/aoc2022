@@ -33,8 +33,7 @@ struct FallingRock {
 
 #[derive(Debug)]
 struct Chamber {
-    field: VecDeque<Vec<char>>,
-    floor: usize,
+    field: Vec<Vec<char>>,
     highest_point: usize,
     rock: Option<FallingRock>,
 }
@@ -42,9 +41,8 @@ struct Chamber {
 impl Chamber {
     fn new() -> Self {
         Chamber {
-            field: VecDeque::from(vec![vec!['.'; 7]; 10]),
+            field: vec![vec!['.'; 7]; 10],
             highest_point: 0,
-            floor: 0,
             rock: None
         }
     }
@@ -55,8 +53,7 @@ impl Chamber {
         for row in 0..rock.height {
             for col in 0..rock.width {
                 if rock.shape[rock.height - row - 1][col] != '.' {
-                    // println!("Drawing pixel {},{}", falling_rock.col + col, falling_rock.row + row);
-                    self.field[falling_rock.row + row - self.floor][falling_rock.col + col] = c;
+                    self.field[falling_rock.row + row][falling_rock.col + col] = c;
                 }
             }
         }
@@ -115,14 +112,9 @@ impl Chamber {
         self.draw_rock('#'); // rock has come to rest
         if self.highest_point < rock_row + height {
             self.highest_point = rock_row + height;
-            // println!("New highest point: {}", self.highest_point);
-            let desired_field_height = self.highest_point + 10 - self.floor;
+            let desired_field_height = self.highest_point + 10;
             let need_rows = desired_field_height - self.field.len();
-            for _ in 0..need_rows { self.field.push_back(vec!['.';7]); }
-            while self.field.len() > 100 {
-                self.field.pop_front();
-                self.floor += 1;
-            }
+            for _ in 0..need_rows { self.field.push(vec!['.';7]); }
         }
         self.rock = None;
     }
@@ -137,7 +129,7 @@ impl Chamber {
             for row in 0..rock.height {
                 for col in 0..rock.width {
                     if rock.shape[rock.height - row - 1][col] == '.' { continue }
-                    if self.field[new_row as usize + row - self.floor][new_col as usize + col] != '.' {
+                    if self.field[new_row as usize + row][new_col as usize + col] != '.' {
                         return false;
                     }
                 }
