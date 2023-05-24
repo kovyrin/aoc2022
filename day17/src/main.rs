@@ -1,7 +1,5 @@
-use std::{str::Lines, fs::read_to_string};
+use std::{str::Lines, fs::read_to_string, collections::VecDeque};
 use anyhow::Context;
-
-const CHAMBER_HEIGHT: usize = 10001;
 
 #[derive(Debug)]
 enum Jet {
@@ -35,16 +33,18 @@ struct FallingRock {
 
 #[derive(Debug)]
 struct Chamber {
-    field: Vec<Vec<char>>,
+    field: VecDeque<Vec<char>>,
+    floor: usize,
     highest_point: usize,
     rock: Option<FallingRock>,
 }
 
 impl Chamber {
-    fn new(height: usize) -> Self {
+    fn new() -> Self {
         Chamber {
-            field: vec![vec!['.'; 7]; 10],
+            field: VecDeque::from(vec![vec!['.'; 7]; 10]),
             highest_point: 0,
+            floor: 0,
             rock: None
         }
     }
@@ -57,7 +57,7 @@ impl Chamber {
         println!("{}:", step);
         for row_idx in (0..self.field.len()-1).rev() {
             let row = &self.field[row_idx];
-            print!("{row_idx}\t|");
+            print!("{}\t|", self.floor + row_idx);
             for c in row { print!("{c}");}
             println!("|");
         }
@@ -72,7 +72,7 @@ impl Chamber {
             for col in 0..rock.width {
                 if rock.shape[rock.height - row - 1][col] != '.' {
                     // println!("Drawing pixel {},{}", falling_rock.col + col, falling_rock.row + row);
-                    self.field[falling_rock.row + row][falling_rock.col + col] = c;
+                    self.field[falling_rock.row + row - self.floor][falling_rock.col + col] = c;
                 }
             }
         }
@@ -132,9 +132,13 @@ impl Chamber {
         if self.highest_point < rock_row + height {
             self.highest_point = rock_row + height;
             println!("New highest point: {}", self.tower_height());
-            let desired_field_height = self.highest_point + 10;
+            let desired_field_height = self.highest_point + 10 - self.floor;
             let need_rows = desired_field_height - self.field.len();
-            for _ in 0..need_rows { self.field.push(vec!['.';7]); }
+            for _ in 0..need_rows { self.field.push_back(vec!['.';7]); }
+            while self.field.len() > 100 {
+                self.field.pop_front();
+                self.floor += 1;
+            }
         }
         self.rock = None;
     }
@@ -149,7 +153,7 @@ impl Chamber {
             for row in 0..rock.height {
                 for col in 0..rock.width {
                     if rock.shape[rock.height - row - 1][col] == '.' { continue }
-                    if self.field[new_row as usize + row][new_col as usize + col] != '.' {
+                    if self.field[new_row as usize + row - self.floor][new_col as usize + col] != '.' {
                         return false;
                     }
                 }
@@ -223,7 +227,7 @@ fn main() {
         ]
     });
 
-    let mut chamber = Chamber::new(CHAMBER_HEIGHT);
+    let mut chamber = Chamber::new();
 
     let mut rocks_count = 0;
     let mut rock_idx = 0;
