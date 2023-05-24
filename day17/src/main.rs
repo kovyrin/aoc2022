@@ -1,4 +1,4 @@
-use std::{str::Lines, fs::read_to_string, collections::VecDeque};
+use std::{str::Lines, fs::read_to_string};
 use anyhow::Context;
 
 #[derive(Debug)]
@@ -214,13 +214,13 @@ fn main() {
     loop {
         // If there is no active rock, drop another one
         if chamber.rock.is_none() {
-            let rock = &rocks[rock_idx];
-            chamber.drop_rock(rock);
+            chamber.drop_rock(&rocks[rock_idx]);
             rocks_count += 1;
             rock_idx = (rock_idx + 1) % rocks.len();
             let step = chamber.highest_point - last_highest_point;
             height_steps.push(step);
             last_highest_point = chamber.highest_point;
+
             if rocks_count > 2022 {
                 println!("Highest point after 2022 steps: {}", chamber.highest_point);
                 break;
@@ -236,7 +236,6 @@ fn main() {
         chamber.maybe_move_rock_down();
     }
 
-    // println!("Steps: {:?}", height_steps);
     let pattern = find_step_pattern(&mut height_steps);
     let pattern_height: usize = pattern.iter().sum();
     println!("Pattern of {} items (total height: {}): {:?}", pattern.len(), pattern_height, pattern);
