@@ -216,14 +216,23 @@ fn main() {
     let mut rocks_count = 0;
     let mut rock_idx = 0;
     let mut jet_idx = 0;
+    let mut last_highest_point = 0;
+    let mut height_steps: Vec<usize> = Vec::new();
 
-    while rocks_count <= 2022 {
+    loop {
         // If there is no active rock, drop another one
         if chamber.rock.is_none() {
             let rock = &rocks[rock_idx];
             chamber.drop_rock(rock);
             rocks_count += 1;
             rock_idx = (rock_idx + 1) % rocks.len();
+            let step = chamber.highest_point - last_highest_point;
+            height_steps.push(step);
+            last_highest_point = chamber.highest_point;
+            if rocks_count > 2022 {
+                println!("Highest point after 2022 steps: {}", chamber.highest_point);
+                break;
+            }
         }
 
         // Apply jet to the falling rock, potentially moving it
@@ -235,5 +244,44 @@ fn main() {
         chamber.maybe_move_rock_down();
     }
 
-    println!("Highest point: {}", chamber.highest_point);
+    // println!("Steps: {:?}", height_steps);
+    let pattern = find_step_pattern(&mut height_steps);
+    let pattern_height: usize = pattern.iter().sum();
+    println!("Pattern of {} items (total height: {}): {:?}", pattern.len(), pattern_height, pattern);
+
+    const STEP2_ROCK_LIMIT: usize = 1_000_000_000_000;
+    let remaining_rocks = STEP2_ROCK_LIMIT - rocks_count;
+    println!("Remaining rocks: {}", remaining_rocks);
+
+    let remaining_pattern_count = remaining_rocks / pattern.len();
+    println!("Need to repeat the pattern {} times", remaining_pattern_count);
+
+    let tail_len = remaining_rocks % pattern.len();
+    println!("After repeating the pattern, we will need {} more rocks", tail_len);
+
+    let tail_height: usize = pattern[0..=tail_len].iter().sum();
+    println!("Height of the additional {} rocks ({:?}) will be {}", tail_len, &pattern[0..=tail_len], tail_height);
+
+    let total_height = chamber.highest_point + remaining_pattern_count * pattern_height + tail_height;
+    println!("Total height: {}", total_height);
  }
+
+fn find_step_pattern(steps: &mut [usize]) -> &[usize] {
+    steps.reverse();
+
+    let beginning_pattern = &steps[0..10];
+    for i in 10..steps.len() {
+        let subset = &steps[i..i+10];
+        if subset == beginning_pattern {
+            let final_pattern = &mut steps[0..i];
+            final_pattern.reverse();
+            return final_pattern;
+        }
+    }
+
+    panic!("Didn't find a pattern");
+}
+
+// Real checks
+// 1537175792497 - too high
+// 1537175792495 - correct
