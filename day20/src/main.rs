@@ -25,20 +25,7 @@ fn main() {
         Number { value: line.parse().unwrap(), org_pos: pos }
     ).collect();
 
-    let mut results = numbers.clone();
-    let modulo = numbers.len() as i64 - 1;
-    for number in numbers.iter() {
-        let old_pos = results.iter().position(|num| num == number ).unwrap();
-
-        // Find the new position for the number shifting it by its value, wrapping around if needed
-        let new_pos = (old_pos as i64 + number.value).rem_euclid(modulo) as usize;
-
-        if old_pos < new_pos {
-            results[old_pos..=new_pos].rotate_left(1);
-        } else {
-            results[new_pos..=old_pos].rotate_right(1);
-        }
-    }
+    let results = mix(&numbers);
 
     // Coordinates x,y,z are found at positions 1000, 2000, 3000 after the 0 in the list
     let zero_pos = results.iter().enumerate().find(|(_, num)| num.value == 0).unwrap().0;
@@ -53,6 +40,22 @@ fn main() {
     println!("Sum of coordinates: {}", results[x_pos].value + results[y_pos].value + results[z_pos].value);
 }
 
+fn mix(numbers: &Vec<Number>) -> Vec<Number> {
+    let mut results = numbers.clone();
+
+    let modulo = numbers.len() as i64 - 1;
+    for number in numbers.iter() {
+        let old_pos = results.iter().position(|num| num == number ).unwrap();
+        let new_pos = (old_pos as i64 + number.value).rem_euclid(modulo) as usize;
+
+        if old_pos < new_pos {
+            results[old_pos..=new_pos].rotate_left(1);
+        } else {
+            results[new_pos..=old_pos].rotate_right(1);
+        }
+    }
+    results
+}
 
 // Real checks:
 // - 3063 is too low
