@@ -1,10 +1,10 @@
 use std::{fs::read_to_string, str::Lines};
 use anyhow::Context;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Number {
-    value: i32,
-    shifted: bool,
+    value: i64,
+    org_pos: usize,
 }
 
 fn main() {
@@ -21,48 +21,36 @@ fn main() {
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
     let lines: Lines = input.lines();
 
-    let mut numbers: Vec<Number> = lines.map(|l| Number {
-        value: l.parse::<i32>().unwrap(),
-        shifted: false,
-    }).collect();
+    let numbers: Vec<Number> = lines.enumerate().map(|(pos, line)|
+        Number { value: line.parse().unwrap(), org_pos: pos }
+    ).collect();
 
-    // println!("Initial state:");
-    // println!("{:?}\n", numbers.iter().map(|n| n.value).collect::<Vec<i32>>());
-
-    let modulo = numbers.len() as i32 - 1;
-    while let Some((old_pos, num)) = numbers.iter().enumerate().find(|(_, num)| !num.shifted) {
-        let value = num.value;
-        numbers[old_pos].shifted = true;
-
-        if value == 0 { continue }
+    let mut results = numbers.clone();
+    let modulo = numbers.len() as i64 - 1;
+    for number in numbers.iter() {
+        let old_pos = results.iter().position(|num| num == number ).unwrap();
 
         // Find the new position for the number shifting it by its value, wrapping around if needed
-        let new_pos = (old_pos as i32 + value).rem_euclid(modulo) as usize;
+        let new_pos = (old_pos as i64 + number.value).rem_euclid(modulo) as usize;
 
-        // If the new position is the same as the old position, no need to do anything
-        if new_pos == old_pos { continue }
-
-        // println!("Moving {} from {} to {}", value, old_pos, new_pos);
         if old_pos < new_pos {
-            numbers[old_pos..=new_pos].rotate_left(1);
+            results[old_pos..=new_pos].rotate_left(1);
         } else {
-            numbers[new_pos..=old_pos].rotate_right(1);
+            results[new_pos..=old_pos].rotate_right(1);
         }
-
-        // println!("{:?}\n", numbers.iter().map(|n| n.value).collect::<Vec<i32>>());
     }
 
     // Coordinates x,y,z are found at positions 1000, 2000, 3000 after the 0 in the list
-    let zero_pos = numbers.iter().enumerate().find(|(_, num)| num.value == 0).unwrap().0;
-    let x_pos = (zero_pos + 1000) % numbers.len();
-    let y_pos = (zero_pos + 2000) % numbers.len();
-    let z_pos = (zero_pos + 3000) % numbers.len();
+    let zero_pos = results.iter().enumerate().find(|(_, num)| num.value == 0).unwrap().0;
+    let x_pos = (zero_pos + 1000) % results.len();
+    let y_pos = (zero_pos + 2000) % results.len();
+    let z_pos = (zero_pos + 3000) % results.len();
 
-    println!("x: {}", numbers[x_pos].value);
-    println!("y: {}", numbers[y_pos].value);
-    println!("z: {}", numbers[z_pos].value);
+    println!("x: {}", results[x_pos].value);
+    println!("y: {}", results[y_pos].value);
+    println!("z: {}", results[z_pos].value);
 
-    println!("Sum of coordinates: {}", numbers[x_pos].value + numbers[y_pos].value + numbers[z_pos].value);
+    println!("Sum of coordinates: {}", results[x_pos].value + results[y_pos].value + results[z_pos].value);
 }
 
 
