@@ -25,7 +25,7 @@ fn main() {
         Number { value: line.parse().unwrap(), org_pos: pos }
     ).collect();
 
-    let results = mix(&numbers);
+    let results = mix(&numbers, 1);
 
     // Coordinates x,y,z are found at positions 1000, 2000, 3000 after the 0 in the list
     let zero_pos = results.iter().enumerate().find(|(_, num)| num.value == 0).unwrap().0;
@@ -37,21 +37,42 @@ fn main() {
     println!("y: {}", results[y_pos].value);
     println!("z: {}", results[z_pos].value);
 
-    println!("Sum of coordinates: {}", results[x_pos].value + results[y_pos].value + results[z_pos].value);
+    println!("Sum of coordinates(1): {}", results[x_pos].value + results[y_pos].value + results[z_pos].value);
+
+    const DECRYPTION_KEY: i64 = 811589153;
+    let decrypted_numbers = numbers.iter().map(|num| Number {
+        value: num.value * DECRYPTION_KEY, org_pos: num.org_pos
+    }).collect();
+    let results = mix(&decrypted_numbers, 10);
+
+    // Coordinates x,y,z are found at positions 1000, 2000, 3000 after the 0 in the list
+    let zero_pos = results.iter().enumerate().find(|(_, num)| num.value == 0).unwrap().0;
+    let x_pos = (zero_pos + 1000) % results.len();
+    let y_pos = (zero_pos + 2000) % results.len();
+    let z_pos = (zero_pos + 3000) % results.len();
+
+    println!("x: {}", results[x_pos].value);
+    println!("y: {}", results[y_pos].value);
+    println!("z: {}", results[z_pos].value);
+
+    println!("Sum of coordinates (2): {}", results[x_pos].value + results[y_pos].value + results[z_pos].value);
+
 }
 
-fn mix(numbers: &Vec<Number>) -> Vec<Number> {
+fn mix(numbers: &Vec<Number>, cycles: usize) -> Vec<Number> {
     let mut results = numbers.clone();
-
     let modulo = numbers.len() as i64 - 1;
-    for number in numbers.iter() {
-        let old_pos = results.iter().position(|num| num == number ).unwrap();
-        let new_pos = (old_pos as i64 + number.value).rem_euclid(modulo) as usize;
 
-        if old_pos < new_pos {
-            results[old_pos..=new_pos].rotate_left(1);
-        } else {
-            results[new_pos..=old_pos].rotate_right(1);
+    for _ in 0..cycles {
+        for number in numbers.iter() {
+            let old_pos = results.iter().position(|num| num == number ).unwrap();
+            let new_pos = (old_pos as i64 + number.value).rem_euclid(modulo) as usize;
+
+            if old_pos < new_pos {
+                results[old_pos..=new_pos].rotate_left(1);
+            } else {
+                results[new_pos..=old_pos].rotate_right(1);
+            }
         }
     }
     results
