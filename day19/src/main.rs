@@ -1,4 +1,4 @@
-use std::{str::Lines, fs::read_to_string, collections::HashSet, time::Instant};
+use std::{str::Lines, fs::read_to_string, collections::HashSet, time::Instant, cmp::max};
 use anyhow::Context;
 use regex::Regex;
 
@@ -14,10 +14,15 @@ struct RobotCost {
 #[derive(Debug, Clone)]
 struct Blueprint {
     id: usize,
+
     ore_bot: RobotCost,
     clay_bot: RobotCost,
     obsidian_bot: RobotCost,
     geode_bot: RobotCost,
+
+    max_ore_needed: usize,
+    max_clay_needed: usize,
+    max_obsidian_needed: usize,
 }
 
 enum BuildPlan {
@@ -41,7 +46,7 @@ struct Invariant {
 }
 
 impl Invariant {
-    fn enough_resources_for(&self, bot: &RobotCost) -> bool {
+    fn can_build(&self, bot: &RobotCost) -> bool {
         self.ore_stock >= bot.ore && self.clay_stock >= bot.clay && self.obsidian_stock >= bot.obsidian
     }
 
@@ -102,10 +107,15 @@ impl Blueprint {
 
         Blueprint {
             id,
+
             ore_bot: RobotCost { ore: ore_bot_ore, clay: 0, obsidian: 0 },
             clay_bot: RobotCost { ore: clay_bot_ore, clay: 0, obsidian: 0 },
             obsidian_bot: RobotCost { ore: obsidian_bot_ore, clay: obsidian_bot_clay, obsidian: 0 },
             geode_bot: RobotCost { ore: geode_bot_ore, clay: 0, obsidian: geode_bot_obsidian },
+
+            max_ore_needed: max(ore_bot_ore, max(clay_bot_ore, obsidian_bot_ore)),
+            max_clay_needed: obsidian_bot_clay,
+            max_obsidian_needed: geode_bot_obsidian,
         }
     }
 
@@ -142,16 +152,16 @@ impl Blueprint {
 
             steps_to_check.push(step.collect_resources());
 
-            if minutes_remaining >= 3 && step.enough_resources_for(&self.ore_bot) {
+            if minutes_remaining >= 3 && step.can_build(&self.ore_bot) && self.max_ore_needed + step.ore_bots > step.ore_stock {
                 steps_to_check.push(step.build_step(BuildPlan::OreBot, &self.ore_bot));
             }
-            if minutes_remaining >= 4 && step.enough_resources_for(&self.clay_bot) {
+            if minutes_remaining >= 4 && step.can_build(&self.clay_bot) && self.max_clay_needed + step.clay_bots > step.clay_stock {
                 steps_to_check.push(step.build_step(BuildPlan::ClayBot, &self.clay_bot));
             }
-            if minutes_remaining >= 3 && step.enough_resources_for(&self.obsidian_bot) {
+            if minutes_remaining >= 3 && step.can_build(&self.obsidian_bot) && self.max_obsidian_needed + step.obsidian_bots > step.obsidian_stock {
                 steps_to_check.push(step.build_step(BuildPlan::ObsidianBot, &self.obsidian_bot));
             }
-            if minutes_remaining >= 2 && step.enough_resources_for(&self.geode_bot) {
+            if minutes_remaining >= 2 && step.can_build(&self.geode_bot) {
                 steps_to_check.push(step.build_step(BuildPlan::GeodeBot, &self.geode_bot));
             }
 
