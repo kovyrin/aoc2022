@@ -2,7 +2,7 @@ use std::{str::Lines, fs::read_to_string, collections::HashSet, time::Instant, c
 use anyhow::Context;
 use regex::Regex;
 
-const MAX_MINUTES: usize = 24;
+const MAX_MINUTES: usize = 32;
 
 #[derive(Debug, Clone)]
 struct RobotCost {
@@ -191,22 +191,17 @@ fn main() {
         blueprints.push(Blueprint::from_str(line));
     }
 
-    let mut total_quality_level = 0;
-    for bp in blueprints.iter() {
+    let mut product_of_results = 1;
+    for bp in blueprints.iter().take(3) {
         println!("Simulating blueprint {}", bp.id);
         let time = Instant::now();
         let max_geodes_collected = bp.find_optimal_plan();
         let elapsed_ms = time.elapsed().as_nanos() as f64 / 1_000_000.0;
 
-        let quality_level = bp.id * max_geodes_collected;
-        total_quality_level += quality_level;
+        product_of_results *= max_geodes_collected;
 
-        println!("Max geodes {} collected for blueprint {} in {} ms. Quality level: {}",
-            max_geodes_collected, bp.id, elapsed_ms, quality_level);
+        println!("Max geodes {} collected for blueprint {} in {} ms.",
+            max_geodes_collected, bp.id, elapsed_ms);
     }
-    println!("Total quality level: {}", total_quality_level);
+    println!("Result: {}", product_of_results);
 }
-
-// real checks:
-// 2155 - too low
-// 2160 - correct
