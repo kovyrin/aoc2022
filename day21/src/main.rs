@@ -1,7 +1,5 @@
 use std::{fs::read_to_string, str::Lines, collections::HashMap};
-
 use anyhow::Context;
-use regex::Regex;
 
 #[derive(Debug)]
 enum Job {
@@ -17,11 +15,11 @@ impl Job {
             return Job::Value(line.parse().expect("Parsing a value"))
         }
 
-        let op_re = Regex::new(r"(\w+) (.) (\w+)").unwrap();
-        let matches = op_re.captures(line).expect("capture");
-        let name1 = matches.get(1).expect("op1 capture").as_str().to_string();
-        let op = matches.get(2).expect("op capture").as_str();
-        let name2 = matches.get(3).expect("op2 capture").as_str().to_string();
+        let mut parts = line.split_whitespace();
+
+        let name1 = parts.next().expect("op1 capture").to_string();
+        let op = parts.next().expect("op capture").to_string();
+        let name2 = parts.next().expect("op2 capture").to_string();
 
         match op.chars().next() {
             Some('+') => Job::Add(name1, name2),
@@ -55,11 +53,13 @@ fn main() {
     let lines: Lines = input.lines();
     let mut monkeys: HashMap<String, Job> = HashMap::new();
 
+    println!("Loading data...");
     for line in lines {
         let (name, job) = parse_line(&line);
         monkeys.insert(name, job);
     }
 
+    println!("Calculating the result...");
     let root_name = String::from("root");
     let result = calculate_monkey(&root_name, &monkeys);
     println!("Root monkey yells {}", result);
