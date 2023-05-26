@@ -138,9 +138,7 @@ fn main() {
     // One of them will be a solvable side, the solution, and another one will have an unknown (human)
     let mut human_dep_jobs: Vec<String> = Vec::new();
     human_dependent_jobs(&right, &monkeys, &mut human_dep_jobs);
-
     let (mut solution, mut equation) = (&left, &right);
-
     if human_dep_jobs.is_empty() {
         human_dependent_jobs(&left, &monkeys, &mut human_dep_jobs);
         (solution, equation) = (&right, &left);
