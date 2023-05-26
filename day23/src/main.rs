@@ -1,13 +1,13 @@
 use std::{fs::read_to_string, str::Lines, collections::{HashSet, HashMap}};
 use anyhow::Context;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct Point {
     x: i64,
     y: i64,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 enum Direction {
     North,
     East,
@@ -46,8 +46,6 @@ fn main() {
         }
     }
 
-    draw_map("Initial state", &gnomes);
-
     let mut proposed_dirs = vec![
         Direction::North,
         Direction::South,
@@ -55,59 +53,63 @@ fn main() {
         Direction::East,
     ];
 
-    for round in 1..=10 {
-        println!("Round {}", round);
+    let mut round = 1;
+    loop {
+        if round == 11 {
+            // Find a bounding box for the gnomes
+            let min_x = gnomes.iter().map(|p| p.x).min().unwrap();
+            let max_x = gnomes.iter().map(|p| p.x).max().unwrap();
+            let min_y = gnomes.iter().map(|p| p.y).min().unwrap();
+            let max_y = gnomes.iter().map(|p| p.y).max().unwrap();
+
+            // Count empty spaces in the bounding box
+            let mut empty_spaces = 0;
+            for y in min_y..=max_y {
+                for x in min_x..=max_x {
+                    if !gnomes.contains(&Point { x, y }) {
+                        empty_spaces += 1;
+                    }
+                }
+            }
+
+            println!("Empty spaces on round 10: {}", empty_spaces);
+        }
+
+        let gnomes_set = gnomes.iter().collect::<HashSet<&Point>>();
 
         // Make a proposal for each gnome
-        let proposals: Vec<Option<Point>> = gnomes.iter().map(|gnome| {
-            make_proposal(gnome, &gnomes, &proposed_dirs)
-        }).collect();
+        let mut proposals: Vec<Option<Point>> = Vec::with_capacity(gnomes.len());
+        let mut proposal_count = 0;
+        for gnome in gnomes.iter() {
+            let proposal = make_proposal(gnome, &gnomes_set, &proposed_dirs);
+            if proposal.is_some() {
+                proposal_count += 1;
+            }
+            proposals.push(proposal);
+        }
+
+        // If no gnome is moving, we're done
+        if proposal_count == 0 { break }
 
         let duplicate_proposals = find_duplicates(&proposals);
-
-        println!("Proposals:");
         for (gnome_idx, proposal) in proposals.iter().enumerate() {
-            println!("  Gnome {:?}: {:?}", gnomes[gnome_idx], proposal);
-            match proposal {
-                None => {
-                    println!("    - Surrounded, not moving")
-                },
-                Some(p) if duplicate_proposals.contains(p) => {
-                    println!("    - Duplicate proposal, not moving");
-                },
-                Some(p) => {
-                    println!("    + Moving gnome {:?} to {:?}", gnomes[gnome_idx], proposal);
-                    gnomes[gnome_idx] = *p;
+            if let Some(p) = proposal {
+                if !duplicate_proposals.contains(p) {
+                    gnomes[gnome_idx] = p.to_owned();
                 }
             }
         }
 
         // Move the first proposed option to the end of the list
         proposed_dirs.rotate_left(1);
-        println!("Proposed dirs after shift: {:?}", proposed_dirs);
 
-        draw_map(format!("End of round {}", round).as_str(), &gnomes);
-    }
-
-    // Find a bounding box for the gnomes
-    let min_x = gnomes.iter().map(|p| p.x).min().unwrap();
-    let max_x = gnomes.iter().map(|p| p.x).max().unwrap();
-    let min_y = gnomes.iter().map(|p| p.y).min().unwrap();
-    let max_y = gnomes.iter().map(|p| p.y).max().unwrap();
-
-    println!("Map size: {}x{}", max_x - min_x + 1, max_y - min_y + 1);
-
-    // Count empty spaces in the bounding box
-    let mut empty_spaces = 0;
-    for y in min_y..=max_y {
-        for x in min_x..=max_x {
-            if !gnomes.contains(&Point { x, y }) {
-                empty_spaces += 1;
-            }
+        round += 1;
+        if round % 10 == 0 {
+            println!("Round {} complete...", round);
         }
     }
 
-    println!("Empty spaces: {}", empty_spaces);
+    println!("Finished after {} rounds", round);
 }
 
 fn find_duplicates(proposals: &[Option<Point>]) -> HashSet<&Point> {
@@ -125,7 +127,7 @@ fn find_duplicates(proposals: &[Option<Point>]) -> HashSet<&Point> {
     duplicates
 }
 
-fn any_neighbors(gnome: &Point, gnomes: &Vec<Point>, dir: &Direction) -> bool {
+fn any_neighbors(gnome: &Point, gnomes: &HashSet<&Point>, dir: &Direction) -> bool {
     let neighbors_in_direction = match dir {
         Direction::North => vec![
             Point { x: gnome.x - 1, y: gnome.y - 1 },
@@ -151,7 +153,7 @@ fn any_neighbors(gnome: &Point, gnomes: &Vec<Point>, dir: &Direction) -> bool {
     neighbors_in_direction.iter().any(|p| gnomes.contains(p))
 }
 
-fn make_proposal(gnome: &Point, gnomes: &Vec<Point>, proposed_dirs: &[Direction]) -> Option<Point> {
+fn make_proposal(gnome: &Point, gnomes: &HashSet<&Point>, proposed_dirs: &[Direction]) -> Option<Point> {
     let mut neighbors_by_dir = HashMap::new();
     for dir in proposed_dirs.iter() {
         neighbors_by_dir.insert(dir, any_neighbors(gnome, gnomes, dir));
@@ -165,7 +167,6 @@ fn make_proposal(gnome: &Point, gnomes: &Vec<Point>, proposed_dirs: &[Direction]
     // Check if any proposed direction is free and propose that move
     for dir in proposed_dirs.iter() {
         if *neighbors_by_dir.get(dir).unwrap() { continue }
-        println!("  Proposing movement of {:?} to the {:?}", gnome, dir);
         return Some(make_a_step(gnome, dir));
     }
 
@@ -182,25 +183,5 @@ fn make_a_step(gnome: &Point, dir: &Direction) -> Point {
     }
 }
 
-fn draw_map(title: &str, gnomes: &Vec<Point>) {
-    println!("== {} ==", title);
-    let min_x = gnomes.iter().map(|p| p.x).min().unwrap() - 3;
-    let max_x = gnomes.iter().map(|p| p.x).max().unwrap() + 3;
-    let min_y = gnomes.iter().map(|p| p.y).min().unwrap() - 3;
-    let max_y = gnomes.iter().map(|p| p.y).max().unwrap() + 3;
-
-    for y in min_y..=max_y {
-        print!("{}\t", y);
-        for x in min_x..=max_x {
-            if gnomes.contains(&Point { x, y }) {
-                print!("#");
-            } else {
-                print!(".");
-            }
-        }
-        println!();
-    }
-    println!("----------------------------------------------------------")
-}
-
 // correct answer for step 1: 3812
+// correct answer for step 2: 1003
