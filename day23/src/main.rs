@@ -1,5 +1,6 @@
-use std::{fs::read_to_string, str::Lines, collections::{HashSet, HashMap}};
+use std::{fs::read_to_string, str::Lines};
 use anyhow::Context;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct Point {
@@ -75,7 +76,7 @@ fn main() {
             println!("Empty spaces on round 10: {}", empty_spaces);
         }
 
-        let gnomes_set = gnomes.iter().collect::<HashSet<&Point>>();
+        let gnomes_set = gnomes.iter().collect::<FxHashSet<&Point>>();
 
         // Make a proposal for each gnome
         let mut proposals: Vec<Option<Point>> = Vec::with_capacity(gnomes.len());
@@ -112,9 +113,9 @@ fn main() {
     println!("Finished after {} rounds", round);
 }
 
-fn find_duplicates(proposals: &[Option<Point>]) -> HashSet<&Point> {
-    let mut seen = HashSet::new();
-    let mut duplicates = HashSet::new();
+fn find_duplicates(proposals: &[Option<Point>]) -> FxHashSet<&Point> {
+    let mut seen = FxHashSet::default();
+    let mut duplicates = FxHashSet::default();
     for proposal in proposals.iter() {
         if let Some(p) = proposal {
             if seen.contains(p) {
@@ -127,7 +128,7 @@ fn find_duplicates(proposals: &[Option<Point>]) -> HashSet<&Point> {
     duplicates
 }
 
-fn any_neighbors(gnome: &Point, gnomes: &HashSet<&Point>, dir: &Direction) -> bool {
+fn any_neighbors(gnome: &Point, gnomes: &FxHashSet<&Point>, dir: &Direction) -> bool {
     let neighbors_in_direction = match dir {
         Direction::North => vec![
             Point { x: gnome.x - 1, y: gnome.y - 1 },
@@ -153,28 +154,31 @@ fn any_neighbors(gnome: &Point, gnomes: &HashSet<&Point>, dir: &Direction) -> bo
     neighbors_in_direction.iter().any(|p| gnomes.contains(p))
 }
 
-fn make_proposal(gnome: &Point, gnomes: &HashSet<&Point>, proposed_dirs: &[Direction]) -> Option<Point> {
-    let mut neighbors_by_dir = HashMap::new();
+fn make_proposal(gnome: &Point, gnomes: &FxHashSet<&Point>, proposed_dirs: &[Direction]) -> Option<Point> {
+    let mut neighbors_by_dir = FxHashMap::default();
+    let mut found_neighbors = false;
+
     for dir in proposed_dirs.iter() {
-        neighbors_by_dir.insert(dir, any_neighbors(gnome, gnomes, dir));
+        let neighbors = any_neighbors(gnome, gnomes, dir);
+        neighbors_by_dir.insert(dir, neighbors);
+        found_neighbors = found_neighbors || neighbors;
     }
 
-    // If there are no neighbors in any direction, return None
-    if !neighbors_by_dir.values().any(|v| *v) {
-        return None;
-    }
+    // If there are no neighbors in any direction, stay put
+    if !found_neighbors { return None }
 
     // Check if any proposed direction is free and propose that move
     for dir in proposed_dirs.iter() {
-        if *neighbors_by_dir.get(dir).unwrap() { continue }
-        return Some(make_a_step(gnome, dir));
+        if !neighbors_by_dir.get(dir).unwrap() {
+            return Some(take_a_step(gnome, dir))
+        }
     }
 
     // We're surrounded, so no move is possible
     None
 }
 
-fn make_a_step(gnome: &Point, dir: &Direction) -> Point {
+fn take_a_step(gnome: &Point, dir: &Direction) -> Point {
     match dir {
         Direction::North => Point { x: gnome.x, y: gnome.y - 1 },
         Direction::East => Point { x: gnome.x + 1, y: gnome.y },
