@@ -57,14 +57,7 @@ fn main() {
     // - Go forward 10 spaces
     // - Turn right
     // - Go forward 5 spaces
-    // - Turn left
-    // - Go forward 5 spaces
-    // - Turn right
-    // - Go forward 10 spaces
-    // - Turn left
-    // - Go forward 4 spaces
-    // - Turn right
-    // - Go forward 5 spaces
+    // ...
     // - Turn left
     // - Go forward 5 spaces
     let mut instructions = Vec::new();
@@ -80,23 +73,18 @@ fn main() {
     }
     instructions.push(instruction);
 
-    // Execute the instructions
+    // Find the starting position
     let mut pos_y = 1;
     let mut pos_x = map[1].iter().position(|&c| c == '.').unwrap();
     let mut dir = Direction::Right;
+
+    // Execute the instructions
     for instruction in instructions {
         match instruction.as_str() {
-            "R" => {
-                println!("Turning right");
-                dir = turn_cw(dir);
-            },
-            "L" => {
-                println!("Turning left");
-                dir = turn_ccw(dir);
-            },
+            "R" => { dir = turn_cw(dir) },
+            "L" => { dir = turn_ccw(dir) },
             steps => {
                 let num_steps = steps.parse::<usize>().unwrap();
-                println!("Going forward {} steps", num_steps);
                 for _ in 0..num_steps {
                     if !go_forward(&dir, &mut pos_x, &mut pos_y, &map) {
                         break;
@@ -138,26 +126,23 @@ fn turn_ccw(dir: Direction) -> Direction {
 }
 
 fn go_forward(dir: &Direction, pos_x: &mut usize, pos_y: &mut usize, map: &Vec<Vec<char>>) -> bool {
+    // Try to take a step
     let (mut new_pos_x, mut new_pos_y) = calc_new_position(dir, *pos_x, *pos_y);
 
-    // If we hit an empty space, that means we need to wrap around to the other side of the map
+    // If we hit a void space (outside of the map), we need to wrap around to the other side of the map
     if map[new_pos_y][new_pos_x] == ' ' {
-        println!("- Hit empty space at {},{}", new_pos_x, new_pos_y);
         (new_pos_x, new_pos_y) = wraparound_calc_new_position(dir, *pos_x, *pos_y, map);
-        println!("- Teleported to position: {},{}", new_pos_x, new_pos_y);
     }
 
-    if map[new_pos_y][new_pos_x] == '#' {
-        println!("- Hit a wall at {},{}", new_pos_x, new_pos_y);
-        return false;
-    }
-
+    // Step into the empty space
     if map[new_pos_y][new_pos_x] == '.' {
-        println!("- Moved to {},{}", new_pos_x, new_pos_y);
         *pos_x = new_pos_x;
         *pos_y = new_pos_y;
         return true;
     }
+
+    // If we hit a wall, stop
+    if map[new_pos_y][new_pos_x] == '#' { return false }
 
     panic!("Unexpected character: {} at {},{}", map[new_pos_y][new_pos_x], new_pos_x, new_pos_y);
 }
@@ -192,7 +177,3 @@ fn wraparound_calc_new_position(dir: &Direction, pos_x: usize, pos_y: usize, map
 
     (new_pos_x, new_pos_y)
 }
-
-
-// real checks:
-// 164022 - too high
