@@ -137,7 +137,7 @@ fn fastest_trip_duration(start: &Point, goal: &Point, vortexes: &Vec<Vortex>, ma
 
     while let Some(step) = steps_to_consider.pop() {
         let next_minute = step.minute + 1;
-        if next_minute >= best_result { continue }
+        if next_minute + step.pos.manhattan_distance(&goal) > best_result { continue }
 
         // Simulate vortex movement in the next minute
         let vortexes_now = vortexes_at_min.entry(next_minute % vortex_cycle).or_insert_with(|| {
@@ -177,6 +177,8 @@ fn fastest_trip_duration(start: &Point, goal: &Point, vortexes: &Vec<Vortex>, ma
             );
         }
     }
+
+    println!("Considered steps: {}", visited.len());
 
     return best_result;
 }
