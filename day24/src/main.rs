@@ -27,10 +27,23 @@ impl Point {
 struct Vortex {
     pos: Point,
     direction: Direction,
+    max: i32,
 }
+
 impl Vortex {
-    fn new(x: i32, y: i32, direction: Direction) -> Vortex {
-        Vortex { pos: Point { x, y }, direction }
+    fn new(x: i32, y: i32, direction: Direction, max: i32) -> Vortex {
+        Vortex { pos: Point { x, y }, direction, max }
+    }
+
+    fn position_at_minute(&self, minute: i32) -> Point {
+        let mut pos = self.pos.clone();
+        match self.direction {
+            Direction::North => pos.y = coord_sub(pos.y, minute, self.max),
+            Direction::South => pos.y = coord_add(pos.y, minute, self.max),
+            Direction::East => pos.x = coord_add(pos.x, minute, self.max),
+            Direction::West => pos.x = coord_sub(pos.x, minute, self.max),
+        };
+        pos
     }
 }
 
@@ -71,21 +84,19 @@ fn main() {
     let input: String = read_to_string(input_file).context("failed to read the data file").unwrap();
     let lines: Vec<&str> = input.lines().collect();
 
-    let line1 = lines[0];
-    let map_width = line1.len() as i32 - 2;
-    let mut map_height = 0;
-    let mut vortexes = Vec::new();
+    let map_width = lines.first().unwrap().len() as i32 - 2;
+    let map_height = lines.len() as i32 - 2;
 
-    for (y, line) in lines[1..].iter().enumerate() {
-        map_height = y as i32;
+    let mut vortexes = Vec::new();
+    for (y, line) in lines.iter().enumerate() {
         for (x, c) in line.chars().enumerate() {
             let x = x as i32 - 1;
-            let y = y as i32;
+            let y = y as i32 - 1;
             match c {
-                '<' => vortexes.push(Vortex::new(x, y, Direction::West)),
-                '>' => vortexes.push(Vortex::new(x, y, Direction::East)),
-                '^' => vortexes.push(Vortex::new(x, y, Direction::North)),
-                'v' => vortexes.push(Vortex::new(x, y, Direction::South)),
+                '<' => vortexes.push(Vortex::new(x, y, Direction::West, map_width)),
+                '>' => vortexes.push(Vortex::new(x, y, Direction::East, map_width)),
+                '^' => vortexes.push(Vortex::new(x, y, Direction::North, map_height)),
+                'v' => vortexes.push(Vortex::new(x, y, Direction::South, map_height)),
                 _ => (),
             }
         }
@@ -103,7 +114,6 @@ fn main() {
     println!("End: {:?}", end);
 
     let entrance_to_exit = fastest_trip_duration(&start, &end, &vortexes, map_width, map_height, 0);
-    // let entrance_to_exit = 264;
     println!("Path duration (entrance to exit): {}", entrance_to_exit);
 
     let exit_to_entrance = fastest_trip_duration(&end, &start, &vortexes, map_width, map_height, entrance_to_exit);
@@ -115,16 +125,14 @@ fn main() {
 
 fn fastest_trip_duration(start: &Point, goal: &Point, vortexes: &Vec<Vortex>, map_width: i32, map_height: i32, start_min: i32) -> i32 {
     // Cache of vortex states at each minute
-    let mut vortexes_at_min: HashMap<i32, Vec<Point>> = HashMap::default();
+    let mut vortexes_at_min: HashMap<i32, FxHashSet<Point>> = HashMap::default();
+
+    // Vortex positions repeat at most every vortex_cycle minutes
+    let vortex_cycle = lcm(map_height, map_width);
 
     // Starting position
     let mut steps_to_consider = vec![Step { pos: start.clone(), minute: start_min }];
     let mut best_result = MAX;
-
-    // Vortex positions repeat at most every vortex_cycle minutes
-    let vortex_cycle = lcm(map_height, map_width);
-    println!("Vortex cycle: {}", vortex_cycle);
-
     let mut visited = FxHashSet::default();
 
     while let Some(step) = steps_to_consider.pop() {
@@ -133,7 +141,7 @@ fn fastest_trip_duration(start: &Point, goal: &Point, vortexes: &Vec<Vortex>, ma
 
         // Simulate vortex movement in the next minute
         let vortexes_now = vortexes_at_min.entry(next_minute % vortex_cycle).or_insert_with(|| {
-            calculate_vortexes_at_min(next_minute % vortex_cycle, vortexes, map_height, map_width)
+            vortexes.iter().map(|v| v.position_at_minute(next_minute)).collect()
         });
 
         // Check which direction we can go
@@ -156,14 +164,13 @@ fn fastest_trip_duration(start: &Point, goal: &Point, vortexes: &Vec<Vortex>, ma
             // Skip candidate if it's in a vortex
             if vortexes_now.contains(&next.pos) { continue }
 
-            // Make sure we can move there
+            // For all move operations, make sure we can go there
             if next.pos != step.pos {
                 if next.pos.x < 0 || next.pos.x >= map_width || next.pos.y < 0 || next.pos.y >= map_height {
                     continue;
                 }
             }
 
-            // println!("Adding candidate {:?} to steps to consider", candidate);
             steps_to_consider.push(next.to_owned());
             steps_to_consider.sort_by(|a, b|
                 b.pos.manhattan_distance(&goal).cmp(&a.pos.manhattan_distance(&goal))
@@ -172,19 +179,6 @@ fn fastest_trip_duration(start: &Point, goal: &Point, vortexes: &Vec<Vortex>, ma
     }
 
     return best_result;
-}
-
-fn calculate_vortexes_at_min(minute: i32, vortexes: &Vec<Vortex>, map_height: i32, map_width: i32) -> Vec<Point> {
-    vortexes.iter().map(|v| {
-        let mut pos = v.pos.clone();
-        match v.direction {
-            Direction::North => pos.y = coord_sub(pos.y, minute, map_height),
-            Direction::South => pos.y = coord_add(pos.y, minute, map_height),
-            Direction::East => pos.x = coord_add(pos.x, minute, map_width),
-            Direction::West => pos.x = coord_sub(pos.x, minute, map_width),
-        };
-        pos
-    }).collect()
 }
 
 // Substracts change from coord, wrapping around at 0 and going to dimension_limit-1
