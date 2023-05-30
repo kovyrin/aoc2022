@@ -1,4 +1,3 @@
-use core::time;
 use std::{collections::{HashMap, HashSet}, str::Lines, fs::read_to_string, usize::MAX};
 use anyhow::Context;
 use regex::Regex;
@@ -40,7 +39,6 @@ struct Walker {
     current_cave: String,
     target_cave: Option<String>,
     steps_remaining: usize,
-    path: Vec<String>,
 }
 
 impl Volcano {
@@ -91,15 +89,13 @@ impl Volcano {
                     current_cave: start.to_owned(),
                     target_cave: None,
                     steps_remaining: 0,
-                    path: vec![],
                 },
-                // Walker {
-                //     name: "elephant".to_string(),
-                //     current_cave: start.to_owned(),
-                //     target_cave: None,
-                //     steps_remaining: 0,
-                //     path: vec![],
-                // }
+                Walker {
+                    name: "elephant".to_string(),
+                    current_cave: start.to_owned(),
+                    target_cave: None,
+                    steps_remaining: 0,
+                }
             ],
             unopened_valves: working_valves,
             minute: 1,
@@ -107,7 +103,7 @@ impl Volcano {
             released: 0,
         };
 
-        self.walk_the_caves(start_invariant, &mut best_release, 30);
+        self.walk_the_caves(start_invariant, &mut best_release, 26);
         best_release
     }
 
@@ -124,57 +120,59 @@ impl Volcano {
             if walker.steps_remaining == 0 {
                 walker.current_cave = walker.target_cave.take().expect("target cave");
                 still_unopened.remove(&walker.current_cave);
-                let valve_flow = self.valves.get(&walker.current_cave).expect("valve fetch").flow_rate;
-                next_flow += valve_flow;
-                walker.path.push(walker.current_cave.to_owned());
+                next_flow += self.valves.get(&walker.current_cave).expect("valve fetch").flow_rate;
             }
         }
 
         let total_release = i.released + (time_limit - i.minute + 1) * next_flow;
         if total_release > *best_release {
             println!("Best new path with total release of {} and current flow of {}", total_release, next_flow);
-            println!("Walkers: {:?}", walkers);
             *best_release = total_release;
         }
+
+        // Get the list of unopened valves and their flow rates, then only pick those we can reach
+        let remaining_minutes = time_limit - i.minute;
+        let mut unopened_with_rates = still_unopened.iter()
+            .map(|v| (v, self.valves.get(v).expect("valve").flow_rate))
+            .collect::<Vec<(&String, usize)>>();
+        unopened_with_rates.sort_by(|a,b| b.1.cmp(&a.1));
+        unopened_with_rates.truncate(remaining_minutes);
+
+        // Project the value of remaining unopened valves in remaining time to see if it makes sense to continue
+        let total_potential_value = unopened_with_rates.iter().enumerate().map(|(i,v)| (remaining_minutes - i) * v.1).sum::<usize>();
+        if total_potential_value + total_release < *best_release { return }
 
         // Now, for the first walker than needs a target, we iterate over all unopened valves
         // and generate invariants for each one. When those invariants get processed, the next
         // function call will take care of iterating over other walkers without a target.
         if still_unopened.len() > 0 {
-            // project the value of remaining unopened valves in remaining time
-            let remaining_minutes = time_limit - i.minute;
-            let value = still_unopened.iter()
-                .map(|v| self.valves.get(v).expect("valve").flow_rate)
-                .sum::<usize>() * remaining_minutes;
+            let active_targets = walkers.iter().filter_map(|w| w.target_cave.clone()).collect::<HashSet<String>>();
+            let mut walkers_without_target = walkers.iter().filter(|w| w.target_cave.is_none());
+            while let Some(walker) = walkers_without_target.next() {
+                for target in unopened_with_rates.iter() {
+                    let target = target.0;
+                    if active_targets.contains(target) { continue }
 
-            if total_release + value >= *best_release {
-                let active_targets = walkers.iter().filter_map(|w| w.target_cave.clone()).collect::<HashSet<String>>();
-                let mut walkers_without_target = walkers.iter().filter(|w| w.target_cave.is_none());
-                if let Some(walker) = walkers_without_target.next() {
-                    for target in still_unopened.iter() {
-                        if active_targets.contains(target) { continue }
+                    let distances_from_cur = self.distance_between.get(&walker.current_cave).expect("dist from cur");
+                    let dist_to_target = distances_from_cur.get(target).expect("dist to dest");
+                    let time_to_target = dist_to_target + 1;
 
-                        let distances_from_cur = self.distance_between.get(&walker.current_cave).expect("dist from cur");
-                        let dist_to_target = distances_from_cur.get(target).expect("dist to dest");
-                        let time_to_target = dist_to_target + 1;
+                    // Cannot take this step, it will take more than TIME_LIMIT min to finish
+                    if i.minute + time_to_target >= time_limit { continue }
 
-                        // Cannot take this step, it will take more than TIME_LIMIT min to finish
-                        if i.minute + time_to_target > time_limit { continue }
+                    let mut new_walkers = walkers.clone();
+                    let mut walker = new_walkers.iter_mut().find(|w| w.name == walker.name).expect("walker");
+                    walker.target_cave = Some(target.to_owned());
+                    walker.steps_remaining = time_to_target;
 
-                        let mut new_walkers = walkers.clone();
-                        let mut walker = new_walkers.iter_mut().find(|w| w.name == walker.name).expect("walker");
-                        walker.target_cave = Some(target.to_owned());
-                        walker.steps_remaining = time_to_target;
-
-                        let next_step = Invariant {
-                            walkers: new_walkers,
-                            unopened_valves: still_unopened.clone(),
-                            minute: i.minute,
-                            flow_per_min: next_flow,
-                            released: i.released,
-                        };
-                        self.walk_the_caves(next_step, best_release, time_limit);
-                    }
+                    let next_step = Invariant {
+                        walkers: new_walkers,
+                        unopened_valves: still_unopened.clone(),
+                        minute: i.minute,
+                        flow_per_min: next_flow,
+                        released: i.released,
+                    };
+                    self.walk_the_caves(next_step, best_release, time_limit);
                 }
             }
         }
@@ -202,7 +200,7 @@ impl Volcano {
             unopened_valves: still_unopened,
             minute: i.minute + step_minutes,
             flow_per_min: next_flow,
-            released: i.released + i.flow_per_min + (step_minutes - 1)*next_flow,
+            released: i.released + i.flow_per_min + (step_minutes - 1) * next_flow,
         };
         self.walk_the_caves(next_step, best_release, time_limit);
     }
@@ -231,7 +229,10 @@ fn main() {
 
 // Demo result: 1651
 //
-// real range:
-// - 1339 is too low
-// - 1488 is valid
-// - 1525 is too high
+// Real data:
+// part1: 1488
+// part2: 2111
+//   Walkers: [
+//     Walker { name: "human", path: ["YL", "EA", "JU", "TI", "RH", "PK", "VM"] },
+//     Walker { name: "elephant", path: ["IR", "JT", "SQ", "IP", "YD", "UX"] },
+//   ]
