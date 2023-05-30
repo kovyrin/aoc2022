@@ -1,3 +1,4 @@
+use core::time;
 use std::{collections::{HashMap, HashSet}, str::Lines, fs::read_to_string, usize::MAX};
 use anyhow::Context;
 use regex::Regex;
@@ -97,6 +98,7 @@ impl Volcano {
                 //     current_cave: start.to_owned(),
                 //     target_cave: None,
                 //     steps_remaining: 0,
+                //     path: vec![],
                 // }
             ],
             unopened_valves: working_valves,
@@ -105,12 +107,12 @@ impl Volcano {
             released: 0,
         };
 
-        self.walk_the_caves(start_invariant, &mut best_release);
+        self.walk_the_caves(start_invariant, &mut best_release, 30);
         best_release
     }
 
-    fn walk_the_caves(&self, i: Invariant, best_release: &mut usize) {
-        if i.minute > 30 { return }
+    fn walk_the_caves(&self, i: Invariant, best_release: &mut usize, time_limit: usize) {
+        if i.minute > time_limit { return }
 
         let mut still_unopened = i.unopened_valves;
         let mut next_flow = i.flow_per_min;
@@ -128,7 +130,7 @@ impl Volcano {
             }
         }
 
-        let total_release = i.released + (30 - i.minute + 1) * next_flow;
+        let total_release = i.released + (time_limit - i.minute + 1) * next_flow;
         if total_release > *best_release {
             println!("Best new path with total release of {} and current flow of {}", total_release, next_flow);
             println!("Walkers: {:?}", walkers);
@@ -140,21 +142,24 @@ impl Volcano {
         // function call will take care of iterating over other walkers without a target.
         if still_unopened.len() > 0 {
             // project the value of remaining unopened valves in remaining time
-            let remaining_minutes = 30 - i.minute;
+            let remaining_minutes = time_limit - i.minute;
             let value = still_unopened.iter()
                 .map(|v| self.valves.get(v).expect("valve").flow_rate)
                 .sum::<usize>() * remaining_minutes;
 
             if total_release + value >= *best_release {
+                let active_targets = walkers.iter().filter_map(|w| w.target_cave.clone()).collect::<HashSet<String>>();
                 let mut walkers_without_target = walkers.iter().filter(|w| w.target_cave.is_none());
                 if let Some(walker) = walkers_without_target.next() {
                     for target in still_unopened.iter() {
+                        if active_targets.contains(target) { continue }
+
                         let distances_from_cur = self.distance_between.get(&walker.current_cave).expect("dist from cur");
                         let dist_to_target = distances_from_cur.get(target).expect("dist to dest");
                         let time_to_target = dist_to_target + 1;
 
-                        // Cannot take this step, it will take more than 30 min to finish
-                        if i.minute + time_to_target > 30 { continue }
+                        // Cannot take this step, it will take more than TIME_LIMIT min to finish
+                        if i.minute + time_to_target > time_limit { continue }
 
                         let mut new_walkers = walkers.clone();
                         let mut walker = new_walkers.iter_mut().find(|w| w.name == walker.name).expect("walker");
@@ -168,7 +173,7 @@ impl Volcano {
                             flow_per_min: next_flow,
                             released: i.released,
                         };
-                        self.walk_the_caves(next_step, best_release);
+                        self.walk_the_caves(next_step, best_release, time_limit);
                     }
                 }
             }
@@ -199,7 +204,7 @@ impl Volcano {
             flow_per_min: next_flow,
             released: i.released + i.flow_per_min + (step_minutes - 1)*next_flow,
         };
-        self.walk_the_caves(next_step, best_release);
+        self.walk_the_caves(next_step, best_release, time_limit);
     }
 }
 
