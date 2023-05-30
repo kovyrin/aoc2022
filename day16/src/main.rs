@@ -26,11 +26,20 @@ struct Volcano {
 
 #[derive(Debug)]
 struct Invariant {
-    current_cave: String,
+    walkers: Vec<Walker>,
     unopened_valves: HashSet<String>,
     minute: usize,
     flow_per_min: usize,
     released: usize,
+}
+
+#[derive(Debug, Clone)]
+struct Walker {
+    name: String,
+    current_cave: String,
+    target_cave: Option<String>,
+    steps_remaining: usize,
+    path: Vec<String>,
 }
 
 impl Volcano {
@@ -75,7 +84,21 @@ impl Volcano {
             .collect();
 
         let start_invariant = Invariant {
-            current_cave: start.to_owned(),
+            walkers: vec![
+                Walker {
+                    name: "human".to_string(),
+                    current_cave: start.to_owned(),
+                    target_cave: None,
+                    steps_remaining: 0,
+                    path: vec![],
+                },
+                // Walker {
+                //     name: "elephant".to_string(),
+                //     current_cave: start.to_owned(),
+                //     target_cave: None,
+                //     steps_remaining: 0,
+                // }
+            ],
             unopened_valves: working_valves,
             minute: 1,
             flow_per_min: 0,
@@ -87,32 +110,99 @@ impl Volcano {
     }
 
     fn walk_the_caves(&self, i: Invariant, best_release: &mut usize) {
-        for next_name in i.unopened_valves.iter() {
-            let distances_from_cur = self.distance_between.get(&i.current_cave).expect("dist from cur");
-            let dist_to_dest = distances_from_cur.get(next_name).expect("dist to dest");
-            let time_for_step = dist_to_dest + 1;
+        if i.minute > 30 { return }
 
-            // Cannot take this step, it will take more than 30 min to finish
-            if i.minute + time_for_step > 30 { continue }
+        let mut still_unopened = i.unopened_valves;
+        let mut next_flow = i.flow_per_min;
 
-            let remaining_unopened = i.unopened_valves.iter().filter(|v| *v != next_name).cloned().collect();
-            let next_flow = self.valves.get(next_name).expect("valve fetch").flow_rate;
-
-            let next_step = Invariant {
-                current_cave: next_name.to_owned(),
-                unopened_valves: remaining_unopened,
-                minute: i.minute + time_for_step,
-                flow_per_min: i.flow_per_min + next_flow,
-                released: i.released + i.flow_per_min * time_for_step,
-            };
-            self.walk_the_caves(next_step, best_release);
+        // First, check if there are any walkers that have reached their target on this step
+        let mut walkers = i.walkers;
+        for walker in walkers.iter_mut() {
+            if walker.target_cave.is_none() { continue }
+            if walker.steps_remaining == 0 {
+                walker.current_cave = walker.target_cave.take().expect("target cave");
+                still_unopened.remove(&walker.current_cave);
+                let valve_flow = self.valves.get(&walker.current_cave).expect("valve fetch").flow_rate;
+                next_flow += valve_flow;
+                walker.path.push(walker.current_cave.to_owned());
+            }
         }
 
-        let total_release = i.released + (30 - i.minute + 1) * i.flow_per_min;
+        let total_release = i.released + (30 - i.minute + 1) * next_flow;
         if total_release > *best_release {
-            println!("Best new path with total release of {}", total_release);
+            println!("Best new path with total release of {} and current flow of {}", total_release, next_flow);
+            println!("Walkers: {:?}", walkers);
             *best_release = total_release;
         }
+
+        // Now, for the first walker than needs a target, we iterate over all unopened valves
+        // and generate invariants for each one. When those invariants get processed, the next
+        // function call will take care of iterating over other walkers without a target.
+        if still_unopened.len() > 0 {
+            // project the value of remaining unopened valves in remaining time
+            let remaining_minutes = 30 - i.minute;
+            let value = still_unopened.iter()
+                .map(|v| self.valves.get(v).expect("valve").flow_rate)
+                .sum::<usize>() * remaining_minutes;
+
+            if total_release + value >= *best_release {
+                let mut walkers_without_target = walkers.iter().filter(|w| w.target_cave.is_none());
+                if let Some(walker) = walkers_without_target.next() {
+                    for target in still_unopened.iter() {
+                        let distances_from_cur = self.distance_between.get(&walker.current_cave).expect("dist from cur");
+                        let dist_to_target = distances_from_cur.get(target).expect("dist to dest");
+                        let time_to_target = dist_to_target + 1;
+
+                        // Cannot take this step, it will take more than 30 min to finish
+                        if i.minute + time_to_target > 30 { continue }
+
+                        let mut new_walkers = walkers.clone();
+                        let mut walker = new_walkers.iter_mut().find(|w| w.name == walker.name).expect("walker");
+                        walker.target_cave = Some(target.to_owned());
+                        walker.steps_remaining = time_to_target;
+
+                        let next_step = Invariant {
+                            walkers: new_walkers,
+                            unopened_valves: still_unopened.clone(),
+                            minute: i.minute,
+                            flow_per_min: next_flow,
+                            released: i.released,
+                        };
+                        self.walk_the_caves(next_step, best_release);
+                    }
+                }
+            }
+        }
+
+        // Now we can take a step forward in time
+        //
+        let mut step_minutes = 1;
+
+        // Calculate the step by finding the walker with the lowest number of steps remaining
+        let still_walking = walkers.iter().filter(|w| w.steps_remaining > 0).count();
+        if still_walking > 0 {
+            step_minutes = walkers.iter().filter(|w| w.steps_remaining > 0)
+                .map(|w| w.steps_remaining)
+                .min()
+                .expect("min steps remaining");
+
+            for walker in walkers.iter_mut() {
+                if walker.steps_remaining > 0 {
+                    walker.steps_remaining -= step_minutes;
+                }
+            }
+        }
+
+        // println!("Taking step forward in time by {} minutes", step_minutes);
+
+        let next_step = Invariant {
+            walkers,
+            unopened_valves: still_unopened,
+            minute: i.minute + step_minutes,
+            flow_per_min: next_flow,
+            released: i.released + i.flow_per_min + (step_minutes - 1)*next_flow,
+        };
+        self.walk_the_caves(next_step, best_release);
     }
 }
 
@@ -137,6 +227,8 @@ fn main() {
     println!("Best release value found: {best_release}")
 }
 
+// Demo result: 1651
+//
 // real range:
 // - 1339 is too low
 // - 1488 is valid
