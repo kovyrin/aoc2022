@@ -1,12 +1,42 @@
 use std::{fs::read_to_string, str::Lines};
 use anyhow::Context;
+use Direction::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum Direction {
     Up,
     Down,
     Left,
     Right,
+}
+
+impl Direction {
+    fn password_coefficient(&self) -> usize {
+        match self {
+            Right => 0,
+            Down => 1,
+            Left => 2,
+            Up => 3,
+        }
+    }
+
+    fn turn_cw(&self) -> Direction {
+        match self {
+            Up => Direction::Right,
+            Right => Direction::Down,
+            Down => Direction::Left,
+            Left => Direction::Up,
+        }
+    }
+
+    fn turn_ccw(&self) -> Direction {
+        match self {
+            Up => Direction::Left,
+            Right => Direction::Up,
+            Down => Direction::Right,
+            Left => Direction::Down,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -91,63 +121,43 @@ fn main() {
         y: 1
     };
 
-    let mut dir = Direction::Right;
+    let mut dir = Right;
 
     // Execute the instructions
     for instruction in instructions {
         match instruction.as_str() {
-            "R" => { dir = turn_cw(dir) },
-            "L" => { dir = turn_ccw(dir) },
+            "R" => { dir = dir.turn_cw() },
+            "L" => { dir = dir.turn_ccw() },
             steps => {
                 let num_steps = steps.parse::<usize>().unwrap();
                 for _ in 0..num_steps {
-                    if !go_forward(&dir, &mut pos, &map) {
+                    if !flat_go_forward(&dir, &mut pos, &map) {
                         break;
                     }
                 }
             }
         }
-        println!("Instruction: {}, new position: {},{} with dir={:?}", instruction, pos.x, pos.y, dir);
     }
 
-    println!("Final position: {},{} with dir={:?}", pos.x, pos.y, dir);
+    print_results("part 1", &pos, &dir);
+}
+
+fn print_results(part: &str, pos: &Point, dir: &Direction) {
+    println!("Final position for {}: {},{} with dir={:?}", part, pos.x, pos.y, dir);
 
     // Calculate the password:
-    let dir_coeff = match dir {
-        Direction::Right => 0,
-        Direction::Down => 1,
-        Direction::Left => 2,
-        Direction::Up => 3,
-    };
+    let dir_coeff = dir.password_coefficient();
     let password = 1000 * pos.y + 4 * pos.x + dir_coeff;
-    println!("Password = 1000 * {} + 4 * {} + {} = {}", pos.y, pos.x, dir_coeff, password);
+    println!("Password for {} = 1000 * {} + 4 * {} + {} = {}", part, pos.y, pos.x, dir_coeff, password);
 }
 
-fn turn_cw(dir: Direction) -> Direction {
-    match dir {
-        Direction::Up => Direction::Right,
-        Direction::Right => Direction::Down,
-        Direction::Down => Direction::Left,
-        Direction::Left => Direction::Up,
-    }
-}
-
-fn turn_ccw(dir: Direction) -> Direction {
-    match dir {
-        Direction::Up => Direction::Left,
-        Direction::Right => Direction::Up,
-        Direction::Down => Direction::Right,
-        Direction::Left => Direction::Down,
-    }
-}
-
-fn go_forward(dir: &Direction, pos: &mut Point, map: &Vec<Vec<char>>) -> bool {
+fn flat_go_forward(dir: &Direction, pos: &mut Point, map: &Vec<Vec<char>>) -> bool {
     // Try to take a step
-    let mut new_pos = calc_new_position(dir, pos);
+    let mut new_pos = take_step(dir, pos);
 
     // If we hit a void space (outside of the map), we need to wrap around to the other side of the map
     if map[new_pos.y][new_pos.x] == ' ' {
-        new_pos = wraparound_calc_new_position(dir, pos, map);
+        new_pos = flat_wraparound_calc_new_position(dir, pos, map);
     }
 
     // Step into the empty space
@@ -162,30 +172,33 @@ fn go_forward(dir: &Direction, pos: &mut Point, map: &Vec<Vec<char>>) -> bool {
     panic!("Unexpected character: {} at {},{}", map[new_pos.y][new_pos.x], new_pos.x, new_pos.y);
 }
 
-fn calc_new_position(dir: &Direction, pos: &Point) -> Point {
+fn take_step(dir: &Direction, pos: &Point) -> Point {
     match dir {
-        Direction::Up    => Point::new(pos.x, pos.y - 1),
-        Direction::Right => Point::new(pos.x + 1, pos.y),
-        Direction::Down  => Point::new(pos.x, pos.y + 1),
-        Direction::Left  => Point::new(pos.x - 1, pos.y),
+        Up    => Point::new(pos.x, pos.y - 1),
+        Right => Point::new(pos.x + 1, pos.y),
+        Down  => Point::new(pos.x, pos.y + 1),
+        Left  => Point::new(pos.x - 1, pos.y),
     }
 }
 
-fn wraparound_calc_new_position(dir: &Direction, pos: &Point, map: &Vec<Vec<char>>) -> Point {
+fn flat_wraparound_calc_new_position(dir: &Direction, pos: &Point, map: &Vec<Vec<char>>) -> Point {
     let mut new_pos = pos.clone();
 
     // Go on the opposite direction until you hit a ' ', that is your new position
     let opposite_dir = match dir {
-        Direction::Up => Direction::Down,
-        Direction::Right => Direction::Left,
-        Direction::Down => Direction::Up,
-        Direction::Left => Direction::Right,
+        Up => Down,
+        Right => Left,
+        Down => Up,
+        Left => Right,
     };
 
     loop {
-        let pos = calc_new_position(&opposite_dir, &new_pos);
+        let pos = take_step(&opposite_dir, &new_pos);
         if map[pos.y][pos.x] == ' ' { break }
         new_pos = pos;
     }
     new_pos
 }
+
+// Final position for part 1: 3,164 with dir=Left
+// Password for part 1 = 1000 * 164 + 4 * 3 + 2 = 164014
