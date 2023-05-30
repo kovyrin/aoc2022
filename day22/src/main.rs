@@ -37,6 +37,15 @@ impl Direction {
             Left => Down,
         }
     }
+
+    fn opposite(&self) -> Direction {
+        match self {
+            Up => Down,
+            Right => Left,
+            Down => Up,
+            Left => Right,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -48,6 +57,15 @@ struct Point {
 impl Point {
     fn new(x: usize, y: usize) -> Self {
         Self { x, y }
+    }
+
+    fn take_step(&self, dir: &Direction) -> Point {
+        match dir {
+            Up    => Point::new(self.x, self.y - 1),
+            Right => Point::new(self.x + 1, self.y),
+            Down  => Point::new(self.x, self.y + 1),
+            Left  => Point::new(self.x - 1, self.y),
+        }
     }
 }
 
@@ -151,11 +169,11 @@ fn print_results(part: &str, pos: &Point, dir: &Direction) {
 
 fn flat_go_forward(dir: &Direction, pos: &mut Point, map: &Vec<Vec<char>>) -> bool {
     // Try to take a step
-    let mut new_pos = take_step(dir, pos);
+    let mut new_pos = pos.take_step(dir);
 
     // If we hit a void space (outside of the map), we need to wrap around to the other side of the map
     if map[new_pos.y][new_pos.x] == ' ' {
-        new_pos = flat_wraparound_calc_new_position(dir, pos, map);
+        new_pos = flat_wraparound_position(dir, pos, map);
     }
 
     // Step into the empty space
@@ -165,37 +183,23 @@ fn flat_go_forward(dir: &Direction, pos: &mut Point, map: &Vec<Vec<char>>) -> bo
     }
 
     // If we hit a wall, stop
-    if map[new_pos.y][new_pos.x] == '#' { return false }
+    if map[new_pos.y][new_pos.x] == '#' {
+        return false
+    }
 
     panic!("Unexpected character: {} at {},{}", map[new_pos.y][new_pos.x], new_pos.x, new_pos.y);
 }
 
-fn take_step(dir: &Direction, pos: &Point) -> Point {
-    match dir {
-        Up    => Point::new(pos.x, pos.y - 1),
-        Right => Point::new(pos.x + 1, pos.y),
-        Down  => Point::new(pos.x, pos.y + 1),
-        Left  => Point::new(pos.x - 1, pos.y),
-    }
-}
-
-fn flat_wraparound_calc_new_position(dir: &Direction, pos: &Point, map: &Vec<Vec<char>>) -> Point {
+fn flat_wraparound_position(dir: &Direction, pos: &Point, map: &Vec<Vec<char>>) -> Point {
     let mut new_pos = pos.clone();
 
-    // Go on the opposite direction until you hit a ' ', that is your new position
-    let opposite_dir = match dir {
-        Up => Down,
-        Right => Left,
-        Down => Up,
-        Left => Right,
-    };
-
+    // Go in the opposite direction until you hit a ' ', that is your new position
+    let opposite_dir = dir.opposite();
     loop {
-        let pos = take_step(&opposite_dir, &new_pos);
-        if map[pos.y][pos.x] == ' ' { break }
+        let pos = new_pos.take_step(&opposite_dir);
+        if map[pos.y][pos.x] == ' ' { return new_pos }
         new_pos = pos;
     }
-    new_pos
 }
 
 // Final position for part 1: 3,164 with dir=Left
