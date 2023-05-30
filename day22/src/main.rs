@@ -9,6 +9,18 @@ enum Direction {
     Right,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct Point {
+    x: usize,
+    y: usize,
+}
+
+impl Point {
+    fn new(x: usize, y: usize) -> Self {
+        Self { x, y }
+    }
+}
+
 fn main() {
     // If first argument is "real", use the real input file
     // Otherwise, use the test input file
@@ -74,8 +86,11 @@ fn main() {
     instructions.push(instruction);
 
     // Find the starting position
-    let mut pos_y = 1;
-    let mut pos_x = map[1].iter().position(|&c| c == '.').unwrap();
+    let mut pos = Point {
+        x: map[1].iter().position(|&c| c == '.').unwrap(),
+        y: 1
+    };
+
     let mut dir = Direction::Right;
 
     // Execute the instructions
@@ -86,15 +101,16 @@ fn main() {
             steps => {
                 let num_steps = steps.parse::<usize>().unwrap();
                 for _ in 0..num_steps {
-                    if !go_forward(&dir, &mut pos_x, &mut pos_y, &map) {
+                    if !go_forward(&dir, &mut pos, &map) {
                         break;
                     }
                 }
             }
         }
+        println!("Instruction: {}, new position: {},{} with dir={:?}", instruction, pos.x, pos.y, dir);
     }
 
-    println!("Final position: {},{} with dir={:?}", pos_x, pos_y, dir);
+    println!("Final position: {},{} with dir={:?}", pos.x, pos.y, dir);
 
     // Calculate the password:
     let dir_coeff = match dir {
@@ -103,8 +119,8 @@ fn main() {
         Direction::Left => 2,
         Direction::Up => 3,
     };
-    let password = 1000 * pos_y + 4 * pos_x + dir_coeff;
-    println!("Password = 1000 * {} + 4 * {} + {} = {}", pos_y, pos_x, dir_coeff, password);
+    let password = 1000 * pos.y + 4 * pos.x + dir_coeff;
+    println!("Password = 1000 * {} + 4 * {} + {} = {}", pos.y, pos.x, dir_coeff, password);
 }
 
 fn turn_cw(dir: Direction) -> Direction {
@@ -125,40 +141,38 @@ fn turn_ccw(dir: Direction) -> Direction {
     }
 }
 
-fn go_forward(dir: &Direction, pos_x: &mut usize, pos_y: &mut usize, map: &Vec<Vec<char>>) -> bool {
+fn go_forward(dir: &Direction, pos: &mut Point, map: &Vec<Vec<char>>) -> bool {
     // Try to take a step
-    let (mut new_pos_x, mut new_pos_y) = calc_new_position(dir, *pos_x, *pos_y);
+    let mut new_pos = calc_new_position(dir, pos);
 
     // If we hit a void space (outside of the map), we need to wrap around to the other side of the map
-    if map[new_pos_y][new_pos_x] == ' ' {
-        (new_pos_x, new_pos_y) = wraparound_calc_new_position(dir, *pos_x, *pos_y, map);
+    if map[new_pos.y][new_pos.x] == ' ' {
+        new_pos = wraparound_calc_new_position(dir, pos, map);
     }
 
     // Step into the empty space
-    if map[new_pos_y][new_pos_x] == '.' {
-        *pos_x = new_pos_x;
-        *pos_y = new_pos_y;
+    if map[new_pos.y][new_pos.x] == '.' {
+        *pos = new_pos;
         return true;
     }
 
     // If we hit a wall, stop
-    if map[new_pos_y][new_pos_x] == '#' { return false }
+    if map[new_pos.y][new_pos.x] == '#' { return false }
 
-    panic!("Unexpected character: {} at {},{}", map[new_pos_y][new_pos_x], new_pos_x, new_pos_y);
+    panic!("Unexpected character: {} at {},{}", map[new_pos.y][new_pos.x], new_pos.x, new_pos.y);
 }
 
-fn calc_new_position(dir: &Direction, pos_x: usize, pos_y: usize) -> (usize, usize) {
+fn calc_new_position(dir: &Direction, pos: &Point) -> Point {
     match dir {
-        Direction::Up => (pos_x, pos_y - 1),
-        Direction::Right => (pos_x + 1, pos_y),
-        Direction::Down => (pos_x, pos_y + 1),
-        Direction::Left => (pos_x - 1, pos_y),
+        Direction::Up    => Point::new(pos.x, pos.y - 1),
+        Direction::Right => Point::new(pos.x + 1, pos.y),
+        Direction::Down  => Point::new(pos.x, pos.y + 1),
+        Direction::Left  => Point::new(pos.x - 1, pos.y),
     }
 }
 
-fn wraparound_calc_new_position(dir: &Direction, pos_x: usize, pos_y: usize, map: &Vec<Vec<char>>) -> (usize, usize) {
-    let mut new_pos_x = pos_x;
-    let mut new_pos_y = pos_y;
+fn wraparound_calc_new_position(dir: &Direction, pos: &Point, map: &Vec<Vec<char>>) -> Point {
+    let mut new_pos = pos.clone();
 
     // Go on the opposite direction until you hit a ' ', that is your new position
     let opposite_dir = match dir {
@@ -169,11 +183,9 @@ fn wraparound_calc_new_position(dir: &Direction, pos_x: usize, pos_y: usize, map
     };
 
     loop {
-        let (x, y) = calc_new_position(&opposite_dir, new_pos_x, new_pos_y);
-        if map[y][x] == ' ' { break }
-        new_pos_x = x;
-        new_pos_y = y;
+        let pos = calc_new_position(&opposite_dir, &new_pos);
+        if map[pos.y][pos.x] == ' ' { break }
+        new_pos = pos;
     }
-
-    (new_pos_x, new_pos_y)
+    new_pos
 }
