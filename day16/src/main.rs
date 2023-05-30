@@ -175,12 +175,11 @@ impl Volcano {
         }
 
         // Now we can take a step forward in time
-        //
         let mut step_minutes = 1;
 
         // Calculate the step by finding the walker with the lowest number of steps remaining
-        let still_walking = walkers.iter().filter(|w| w.steps_remaining > 0).count();
-        if still_walking > 0 {
+        let still_walking = walkers.iter().any(|w| w.steps_remaining > 0);
+        if still_walking {
             step_minutes = walkers.iter().filter(|w| w.steps_remaining > 0)
                 .map(|w| w.steps_remaining)
                 .min()
@@ -192,8 +191,6 @@ impl Volcano {
                 }
             }
         }
-
-        // println!("Taking step forward in time by {} minutes", step_minutes);
 
         let next_step = Invariant {
             walkers,
