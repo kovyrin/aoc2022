@@ -20,21 +20,21 @@ impl Direction {
         }
     }
 
-    fn turn_cw(&self) -> Direction {
-        match self {
-            Up => Direction::Right,
-            Right => Direction::Down,
-            Down => Direction::Left,
-            Left => Direction::Up,
+    fn turn_cw(&mut self) {
+        *self = match self {
+            Up => Right,
+            Right => Down,
+            Down => Left,
+            Left => Up,
         }
     }
 
-    fn turn_ccw(&self) -> Direction {
-        match self {
-            Up => Direction::Left,
-            Right => Direction::Up,
-            Down => Direction::Right,
-            Left => Direction::Down,
+    fn turn_ccw(&mut self) {
+        *self = match self {
+            Up => Left,
+            Right => Up,
+            Down => Right,
+            Left => Down,
         }
     }
 }
@@ -116,24 +116,22 @@ fn main() {
     instructions.push(instruction);
 
     // Find the starting position
-    let mut pos = Point {
+    let start_pos = Point {
         x: map[1].iter().position(|&c| c == '.').unwrap(),
         y: 1
     };
 
-    let mut dir = Right;
-
     // Execute the instructions
+    let mut pos = start_pos;
+    let mut dir = Right;
     for instruction in instructions {
         match instruction.as_str() {
-            "R" => { dir = dir.turn_cw() },
-            "L" => { dir = dir.turn_ccw() },
+            "R" => { dir.turn_cw() },
+            "L" => { dir.turn_ccw() },
             steps => {
-                let num_steps = steps.parse::<usize>().unwrap();
+                let num_steps = steps.parse().unwrap();
                 for _ in 0..num_steps {
-                    if !flat_go_forward(&dir, &mut pos, &map) {
-                        break;
-                    }
+                    if !flat_go_forward(&dir, &mut pos, &map) { break }
                 }
             }
         }
