@@ -80,12 +80,13 @@ struct Cube {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Face {
     Top = 0,
-    Front = 1,
-    Bottom = 2,
-    Rear = 3,
-    Right = 4,
-    Left = 5,
+    Right = 1,
+    Front = 2,
+    Left = 3,
+    Bottom = 4,
+    Rear = 5,
 }
+
 impl Face {
     fn take_step(&self, dir: &Direction) -> Face {
         match self {
@@ -140,8 +141,33 @@ fn demo_faces()-> Vec<(usize, usize)> {
     ]
 }
 
+// .01
+// .2.
+// 34.
+// 5..
+//
+// .Tr
+// .F.
+// lB.
+// R..
+//
+// 0 - top
+// 1 - right
+// 2 - front
+// 3 - left
+// 4 - bottom
+// 5 - rear
+
+
 fn real_faces()-> Vec<(usize, usize)> {
-    todo!()
+    vec![
+        (1, 0), // top
+        (2, 0), // right
+        (1, 1), // front
+        (0, 2), // left
+        (1, 2), // bottom
+        (0, 3), // rear
+    ]
 }
 
 type PositionTransformer = fn(Point, usize) -> Point;
@@ -205,6 +231,109 @@ fn demo_transition_for_face(src_face: &Face, dst_face: &Face) -> FaceTransition 
     }
 }
 
+
+/*
+            0 => [
+                (1, RIGHT,  |pos, ___| (0, pos.y).into()),
+                (2, DOWN,   |pos, ___| (pos.x, 0).into()),
+                (3, RIGHT,  |pos, max| (0, max - pos.y).into()),
+                (5, RIGHT,  |pos, ___| (0, pos.x).into()),
+            ],
+            1 => [
+                (4, LEFT,  |pos, max| (max, max - pos.y).into()),
+                (2, LEFT,  |pos, max| (max, pos.x).into()),
+                (0, LEFT,  |pos, max| (max, pos.y).into()),
+                (5, UP,    |pos, max| (pos.x, max).into()),
+            ],
+            2 => [
+                (1, UP,    |pos, max| (pos.y, max).into()),
+                (4, DOWN,  |pos, ___| (pos.x, 0).into()),
+                (3, DOWN,  |pos, ___| (pos.y, 0).into()),
+                (0, UP,    |pos, max| (pos.x, max).into()),
+            ],
+            3 => [
+                (4, RIGHT, |pos, ___| (0, pos.y).into()),
+                (5, DOWN,  |pos, ___| (pos.x, 0).into()),
+                (0, RIGHT, |pos, max| (0, max - pos.y).into()),
+                (2, RIGHT, |pos, ___| (0, pos.x).into()),
+            ],
+            4 => [
+                (1, LEFT,  |pos, max| (max, max - pos.y).into()),
+                (5, LEFT,  |pos, max| (max, pos.x).into()),
+                (3, LEFT,  |pos, max| (max, pos.y).into()),
+                (2, UP,    |pos, max| (pos.x, max).into()),
+            ],
+            5 => [
+                (4, UP,    |pos, max| (pos.y, max).into()),
+                (1, DOWN,  |pos, ___| (pos.x, 0).into()),
+                (0, DOWN,  |pos, ___| (pos.y, 0).into()),
+                (3, UP,    |pos, max| (pos.x, max).into()),
+            ],
+
+// .01
+// .2.
+// 34.
+// 5..
+//
+// .Tr
+// .F.
+// lB.
+// R..
+
+// 0 - top
+// 1 - right
+// 2 - front
+// 3 - left
+// 4 - bottom
+// 5 - rear
+ */
+fn real_transitions_for_face(src_face: &Face, dst_face: &Face) -> FaceTransition {
+    match src_face {
+        Face::Top => match dst_face {
+            Face::Right => (Right, |pos, ___| Point::new(0, pos.y)),
+            Face::Front => (Down,  |pos, ___| Point::new(pos.x, 0)),
+            Face::Left  => (Right, |pos, max| Point::new(0, max - pos.y - 1)),
+            Face::Rear  => (Right, |pos, ___| Point::new(0, pos.x)),
+            _ => panic!("Unexpected destination face: {:?}", dst_face),
+        },
+        Face::Right => match dst_face {
+            Face::Bottom => (Left, |pos, max| Point::new(max - 1, max - pos.y - 1)),
+            Face::Front  => (Left, |pos, max| Point::new(max - 1, pos.x)),
+            Face::Top    => (Left, |pos, max| Point::new(max - 1, pos.y)),
+            Face::Rear   => (Up,   |pos, max| Point::new(pos.x, max - 1)),
+            _ => panic!("Unexpected destination face: {:?}", dst_face),
+        },
+        Face::Front => match dst_face  {
+            Face::Right  => (Up,    |pos, max| Point::new(pos.y, max - 1)),
+            Face::Bottom => (Down,  |pos, ___| Point::new(pos.x, 0)),
+            Face::Left   => (Down,  |pos, ___| Point::new(pos.y, 0)),
+            Face::Top    => (Up,    |pos, max| Point::new(pos.x, max - 1)),
+            _ => panic!("Unexpected destination face: {:?}", dst_face),
+        },
+        Face::Left => match dst_face {
+            Face::Bottom => (Right, |pos, ___| Point::new(0, pos.y)),
+            Face::Rear   => (Down,  |pos, ___| Point::new(pos.x, 0)),
+            Face::Top    => (Right, |pos, max| Point::new(0, max - pos.y - 1)),
+            Face::Front  => (Right, |pos, ___| Point::new(0, pos.x)),
+            _ => panic!("Unexpected destination face: {:?}", dst_face),
+        },
+        Face::Bottom => match dst_face {
+            Face::Right => (Left, |pos, max| Point::new(max - 1, max - pos.y - 1)),
+            Face::Rear  => (Left, |pos, max| Point::new(max - 1, pos.x)),
+            Face::Left  => (Left, |pos, max| Point::new(max - 1, pos.y)),
+            Face::Front => (Up,   |pos, max| Point::new(pos.x, max - 1)),
+            _ => panic!("Unexpected destination face: {:?}", dst_face),
+        },
+        Face::Rear => match dst_face {
+            Face::Bottom => (Up,   |pos, max| Point::new(pos.y, max - 1)),
+            Face::Right  => (Down, |pos, ___| Point::new(pos.x, 0)),
+            Face::Top    => (Down, |pos, ___| Point::new(pos.y, 0)),
+            Face::Left   => (Up,   |pos, max| Point::new(pos.x, max - 1)),
+            _ => panic!("Unexpected destination face: {:?}", dst_face),
+        },
+    }
+}
+
 impl Cube {
     fn from_flat_map(map: &FlatMap) -> Self {
         let map_len = map.len();
@@ -225,13 +354,8 @@ impl Cube {
         return cube
     }
 
-    /*
-     ..T.
-     RlF.
-     ..Br
-     */
     fn load_map(&mut self, map: &FlatMap, face_positions: &Vec<(usize, usize)>) {
-        for face in Face::Top as usize..=Face::Left as usize {
+        for face in Face::Top as usize..=Face::Rear as usize {
             let (face_x, face_y) = face_positions[face];
             self.load_face(face, map, face_x, face_y);
         }
@@ -443,7 +567,16 @@ fn cube_go_forward(dir: &mut Direction, pos: &mut Point, face: &mut Face, cube: 
             return true;
         },
         '#' => return false,
-        _ => panic!("Unexpected character: {} at {},{}", cube.faces[new_face as usize][new_pos.y][new_pos.x], new_pos.x, new_pos.y),
+        _ => {
+            // print the face
+            println!("Face {}:", new_face as usize);
+            for row in cube.faces[new_face as usize].iter() {
+                println!("{}", row.iter().collect::<String>());
+            }
+
+            panic!("Unexpected character: '{}' at {},{} on face {:?} ({})",
+            cube.faces[new_face as usize][new_pos.y][new_pos.x], new_pos.x, new_pos.y, new_face, new_face as usize)
+        },
     }
 }
 
@@ -452,15 +585,16 @@ fn cube_take_step(dir: &Direction, pos: &Point, src_face: &Face, cube: &Cube) ->
     let dst_face = src_face.take_step(dir);
     let (new_dir, f_transform) = match cube.size {
         4 => demo_transition_for_face(src_face, &dst_face),
-        50 => todo!(),
+        50 => real_transitions_for_face(src_face, &dst_face),
         _ => panic!("Unexpected face size: {}", cube.size),
     };
 
     // Find the transition that will take us to the new face
     let new_pos = f_transform(*pos, cube.size);
-
     (dst_face, new_pos, new_dir)
 }
 
 // Final position for part 1: 3,164 with dir=Left
 // Password for part 1 = 1000 * 164 + 4 * 3 + 2 = 164014
+
+// Part 2: password 47525
