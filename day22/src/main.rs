@@ -91,40 +91,40 @@ impl Face {
     fn take_step(&self, dir: &Direction) -> Face {
         match self {
             Face::Top => match dir {
-                Up => Face::Rear,
                 Right => Face::Right,
                 Down => Face::Front,
                 Left => Face::Left,
+                Up => Face::Rear,
             },
             Face::Front => match dir {
-                Up => Face::Top,
                 Right => Face::Right,
                 Down => Face::Bottom,
                 Left => Face::Left,
+                Up => Face::Top,
             },
             Face::Bottom => match dir {
-                Up => Face::Front,
                 Right => Face::Right,
                 Down => Face::Rear,
                 Left => Face::Left,
+                Up => Face::Front,
             },
             Face::Rear => match dir {
-                Up => Face::Bottom,
                 Right => Face::Right,
                 Down => Face::Top,
                 Left => Face::Left,
+                Up => Face::Bottom,
             },
             Face::Right => match dir {
-                Up => Face::Top,
                 Right => Face::Rear,
                 Down => Face::Bottom,
                 Left => Face::Front,
+                Up => Face::Top,
             },
             Face::Left => match dir {
-                Up => Face::Top,
                 Right => Face::Front,
                 Down => Face::Bottom,
                 Left => Face::Rear,
+                Up => Face::Top,
             },
         }
     }
@@ -286,7 +286,40 @@ fn demo_transition_for_face(src_face: &Face, dst_face: &Face) -> FaceTransition 
 // 3 - left
 // 4 - bottom
 // 5 - rear
+            Face::Front => match dir {
+                Right => Face::Right,
+                Down => Face::Bottom,
+                Left => Face::Left,
+                Up => Face::Top,
+            },
+            Face::Bottom => match dir {
+                Right => Face::Right,
+                Down => Face::Rear,
+                Left => Face::Left,
+                Up => Face::Front,
+            },
+            Face::Rear => match dir {
+                Right => Face::Right,
+                Down => Face::Top,
+                Left => Face::Left,
+                Up => Face::Bottom,
+            },
+            Face::Right => match dir {
+                Right => Face::Rear,
+                Down => Face::Bottom,
+                Left => Face::Front,
+                Up => Face::Top,
+            },
+            Face::Left => match dir {
+                Right => Face::Front,
+                Down => Face::Bottom,
+                Left => Face::Rear,
+                Up => Face::Top,
+            },
+
+
  */
+
 fn real_transitions_for_face(src_face: &Face, dst_face: &Face) -> FaceTransition {
     match src_face {
         Face::Top => match dst_face {
